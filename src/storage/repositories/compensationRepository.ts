@@ -1,0 +1,134 @@
+import { Compensacion, CreateCompensacionDto } from '../../types';
+import { db } from '../db';
+
+export interface ICompensationRepository {
+  getAll(): Compensacion[];
+  getById(id: string): Compensacion | null;
+  getByEmployeeId(empleadoId: string): Compensacion[];
+  getByEmployeeAndGeneratedDate(empleadoId: string, fechaGenerada: string): Compensacion | null;
+  create(dto: CreateCompensacionDto): Compensacion;
+  scheduleCompensation(id: string, fechaCompensacion: string, observacion?: string): Compensacion | null;
+  markAsCompensated(id: string): Compensacion | null;
+  annul(id: string, motivoAnulacion?: string): Compensacion | null;
+  delete(id: string): boolean;
+  countByEmployee(empleadoId: string): number;
+}
+
+export class CompensationRepository implements ICompensationRepository {
+  public getAll(): Compensacion[] {
+    const list = db.getCompensations();
+    // Ordenar cronológicamente descendente por fechaGenerada
+    return [...list].sort((a, b) => b.fechaGenerada.localeCompare(a.fechaGenerada));
+  }
+
+  public getById(id: string): Compensacion | null {
+    return this.getAll().find((c) => c.id === id) || null;
+  }
+
+  public getByEmployeeId(empleadoId: string): Compensacion[] {
+    return this.getAll().filter((c) => c.empleadoId === empleadoId);
+  }
+
+  public getByEmployeeAndGeneratedDate(
+    empleadoId: string,
+    fechaGenerada: string
+  ): Compensacion | null {
+    return (
+      this.getAll().find(
+        (c) => c.empleadoId === empleadoId && c.fechaGenerada === fechaGenerada
+      ) || null
+    );
+  }
+
+  public create(dto: CreateCompensacionDto): Compensacion {
+    const list = db.getCompensations();
+    const now = new Date().toISOString();
+    const newComp: Compensacion = {
+      id: 'comp-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      empleadoId: dto.empleadoId,
+      fechaGenerada: dto.fechaGenerada,
+      fechaCompensacion: null,
+      estado: 'PENDIENTE',
+      observacion: (dto.observacion || '').trim(),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    list.unshift(newComp);
+    db.saveCompensations(list);
+    return newComp;
+  }
+
+  public scheduleCompensation(
+    id: string,
+    fechaCompensacion: string,
+    observacion?: string
+  ): Compensacion | null {
+    const list = db.getCompensations();
+    const index = list.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+
+    const existing = list[index];
+    const updated: Compensacion = {
+      ...existing,
+      fechaCompensacion: fechaCompensacion.trim(),
+      estado: 'PROGRAMADO',
+      observacion:
+        observacion !== undefined ? observacion.trim() : existing.observacion,
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    db.saveCompensations(list);
+    return updated;
+  }
+
+  public markAsCompensated(id: string): Compensacion | null {
+    const list = db.getCompensations();
+    const index = list.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+
+    const existing = list[index];
+    const updated: Compensacion = {
+      ...existing,
+      estado: 'COMPENSADO',
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    db.saveCompensations(list);
+    return updated;
+  }
+
+  public annul(id: string, motivoAnulacion?: string): Compensacion | null {
+    const list = db.getCompensations();
+    const index = list.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+
+    const existing = list[index];
+    const updated: Compensacion = {
+      ...existing,
+      estado: 'ANULADO',
+      motivoAnulacion: (motivoAnulacion || 'Anulado manualmente').trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    db.saveCompensations(list);
+    return updated;
+  }
+
+  public delete(id: string): boolean {
+    const list = db.getCompensations();
+    const filtered = list.filter((c) => c.id !== id);
+    if (filtered.length === list.length) return false;
+    db.saveCompensations(filtered);
+    return true;
+  }
+
+  public countByEmployee(empleadoId: string): number {
+    return this.getByEmployeeId(empleadoId).length;
+  }
+}
+
+export const compensationRepository = new CompensationRepository();

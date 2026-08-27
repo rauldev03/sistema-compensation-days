@@ -1,0 +1,628 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Search,
+  User,
+  PlusCircle,
+  CalendarCheck,
+  CheckCircle2,
+  Edit,
+  Ban,
+  Clock,
+  Eye,
+  Calendar,
+  FileText
+} from 'lucide-react';
+import { Empleado, Compensacion } from '../../types';
+import { employeeService, compensationService } from '../../services';
+import { useApp } from '../../context/AppContext';
+import { useToast } from '../../context/ToastContext';
+import { Badge } from '../common/Badge';
+import { Button } from '../common/Button';
+import { SearchBar } from '../common/SearchBar';
+import { ConfirmModal } from '../common/ConfirmModal';
+import { ScheduleCompensationModal } from './ScheduleCompensationModal';
+import { RegisterPendingDayModal } from './RegisterPendingDayModal';
+import { formatDateDisplay } from '../../utils/dateUtils';
+
+export const WorkerCompensationPanel: React.FC = () => {
+  const {
+    selectedEmployeeIdForCompensations,
+    setSelectedEmployeeIdForCompensations,
+    refreshKey,
+    triggerRefresh
+  } = useApp();
+  const { success, error, warning } = useToast();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(null);
+
+  // Modals state
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [compensationToSchedule, setCompensationToSchedule] = useState<Compensacion | null>(null);
+
+  const [isRegisterDayModalOpen, setIsRegisterDayModalOpen] = useState(false);
+
+  const [isMarkCompensatedConfirmOpen, setIsMarkCompensatedConfirmOpen] = useState(false);
+  const [compensationToMarkCompensated, setCompensationToMarkCompensated] = useState<Compensacion | null>(null);
+
+  const [isAnnulConfirmOpen, setIsAnnulConfirmOpen] = useState(false);
+  const [compensationToAnnul, setCompensationToAnnul] = useState<Compensacion | null>(null);
+
+  // Detail modal
+  const [detailCompensation, setDetailCompensation] = useState<Compensacion | null>(null);
+
+  // Load employee if preselected from context (e.g. from Dashboard or Employee List)
+  useEffect(() => {
+    if (selectedEmployeeIdForCompensations) {
+      const emp = employeeService.getById(selectedEmployeeIdForCompensations);
+      if (emp) {
+        setSelectedEmployee(emp);
+        setSearchTerm('');
+      } else {
+        setSelectedEmployee(null);
+      }
+    } else {
+      const activeEmployees = employeeService.getAll({ estado: 'ACTIVO' });
+      if (activeEmployees.length > 0) {
+        if (!selectedEmployee || !activeEmployees.some((e) => e.id === selectedEmployee.id)) {
+          setSelectedEmployee(activeEmployees[0]);
+        }
+      } else {
+        setSelectedEmployee(null);
+      }
+    }
+  }, [selectedEmployeeIdForCompensations, refreshKey]);
+
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Dropdown search results
+  const searchResults = useMemo(() => {
+    if (!searchTerm || searchTerm.trim().length === 0) return [];
+    return employeeService.searchQuick(searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [searchResults]);
+
+  // Compensations for currently selected employee
+  const employeeCompensations = useMemo(() => {
+    if (!selectedEmployee) return [];
+    return compensationService.getByEmployee(selectedEmployee.id);
+  }, [selectedEmployee, refreshKey]);
+
+  // Summary statistics for selected employee
+  const summary = useMemo(() => {
+    if (!selectedEmployee) {
+      return { totalGenerados: 0, pendientes: 0, programados: 0, compensados: 0, anulados: 0 };
+    }
+    return compensationService.getEmployeeSummary(selectedEmployee.id);
+  }, [selectedEmployee, refreshKey]);
+
+  const formatDate = (dateStr?: string | null) => formatDateDisplay(dateStr);
+
+  const handleSelectEmployee = (emp: Empleado) => {
+    setSelectedEmployee(emp);
+    setSelectedEmployeeIdForCompensations(emp.id);
+    setSearchTerm('');
+    success(`Trabajador seleccionado: ${emp.apellidosNombres}`, 'Panel Actualizado');
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (searchResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1 < searchResults.length ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : searchResults.length - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const targetEmp = searchResults[selectedIndex] || searchResults[0];
+      if (targetEmp) {
+        handleSelectEmployee(targetEmp);
+      }
+    } else if (e.key === 'Escape') {
+      setSearchTerm('');
+    }
+  };
+
+  const handleOpenScheduleModal = (comp: Compensacion) => {
+    setCompensationToSchedule(comp);
+    setIsScheduleModalOpen(true);
+  };
+
+  const handlePromptMarkAsCompensated = (comp: Compensacion) => {
+    setCompensationToMarkCompensated(comp);
+    setIsMarkCompensatedConfirmOpen(true);
+  };
+
+  const handleConfirmMarkAsCompensated = () => {
+    if (!compensationToMarkCompensated) return;
+    const res = compensationService.markAsCompensated(compensationToMarkCompensated.id);
+    if (res.success) {
+      success(
+        `Compensación del día ${formatDate(
+          compensationToMarkCompensated.fechaGenerada
+        )} marcada como COMPENSADA.`,
+        'Compensación Realizada'
+      );
+      triggerRefresh();
+    } else {
+      error(res.error || 'Error al actualizar estado.');
+    }
+  };
+
+  const handlePromptAnnul = (comp: Compensacion) => {
+    setCompensationToAnnul(comp);
+    setIsAnnulConfirmOpen(true);
+  };
+
+  const handleConfirmAnnul = (reason?: string) => {
+    if (!compensationToAnnul) return;
+    const res = compensationService.annulCompensation(compensationToAnnul.id, {
+      motivoAnulacion: reason || 'Anulado por usuario'
+    });
+    if (res.success) {
+      warning(
+        `Registro de compensación del día ${formatDate(
+          compensationToAnnul.fechaGenerada
+        )} anulado.`,
+        'Compensación Anulada'
+      );
+      triggerRefresh();
+    } else {
+      error(res.error || 'Error al anular registro.');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* 1. SECCIÓN DE BÚSQUEDA RÁPIDA DE TRABAJADOR */}
+      <div
+        className="card"
+        style={{
+          padding: '1.25rem 1.5rem',
+          position: 'relative',
+          zIndex: 50,
+          border: '1px solid #cbd5e1'
+        }}
+      >
+        <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <label
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem'
+            }}
+          >
+            <Search size={16} style={{ color: '#2563eb' }} />
+            Buscar Trabajador para gestionar días de compensación
+          </label>
+
+          {selectedEmployee && (
+            <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
+              Actual: <strong style={{ color: '#0f172a' }}>{selectedEmployee.apellidosNombres}</strong> ({selectedEmployee.documentoIdentidad})
+            </span>
+          )}
+        </div>
+
+        <div className="quick-search-box">
+          <SearchBar
+            value={searchTerm}
+            onChange={(val) => setSearchTerm(val)}
+            onKeyDown={handleSearchKeyDown}
+            placeholder="Escriba DNI, código o apellidos (ej. 12345678, EMP-001, PEREZ)... presione Enter para seleccionar"
+          />
+
+          {searchTerm.trim().length > 0 && (
+            <div className="search-results-popover">
+              {searchResults.length > 0 ? (
+                <>
+                  <div className="search-results-header">
+                    <span>
+                      {searchResults.length} trabajador(es) encontrado(s) para "{searchTerm}"
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>
+                      [ENTER] o clic para seleccionar
+                    </span>
+                  </div>
+                  {searchResults.map((emp, index) => (
+                    <div
+                      key={emp.id}
+                      className={`search-result-row ${index === selectedIndex ? 'selected' : ''}`}
+                      onClick={() => handleSelectEmployee(emp)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                    >
+                      <div>
+                        <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                          {emp.apellidosNombres}
+                        </strong>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                          <strong>DNI:</strong> {emp.documentoIdentidad} |{' '}
+                          <strong>Área:</strong> {emp.area} |{' '}
+                          <strong>Cargo:</strong> {emp.cargo}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Badge status={emp.estado} />
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#2563eb',
+                            fontWeight: 700,
+                            padding: '0.2rem 0.5rem',
+                            background: '#eff6ff',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          Seleccionar
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="search-result-empty">
+                  No se encontraron trabajadores que coincidan con "<strong>{searchTerm}</strong>".
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. PANEL HERO DEL TRABAJADOR SELECCIONADO */}
+      {selectedEmployee ? (
+        <>
+          <div className="worker-hero">
+            <div className="worker-hero-top">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.375rem' }}>
+                  <h2 className="worker-hero-name">{selectedEmployee.apellidosNombres}</h2>
+                  <Badge status={selectedEmployee.estado} />
+                </div>
+
+                <div className="worker-hero-meta">
+                  <div className="worker-hero-meta-item">
+                    <span>DNI:</span>
+                    <strong>{selectedEmployee.documentoIdentidad}</strong>
+                  </div>
+                  <div className="worker-hero-meta-item">
+                    <span>Área:</span>
+                    <strong>{selectedEmployee.area}</strong>
+                  </div>
+                  <div className="worker-hero-meta-item">
+                    <span>Cargo:</span>
+                    <strong>{selectedEmployee.cargo}</strong>
+                  </div>
+                  <div className="worker-hero-meta-item">
+                    <span>Ingreso:</span>
+                    <strong>{formatDate(selectedEmployee.fechaIngreso)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                variant="primary"
+                onClick={() => setIsRegisterDayModalOpen(true)}
+                icon={<PlusCircle size={18} />}
+                style={{
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)'
+                }}
+              >
+                + Generar Día Trabajado
+              </Button>
+            </div>
+
+            {/* Chips de Resumen de Compensaciones */}
+            <div className="worker-summary-chips">
+              <div className="summary-chip" style={{ borderLeft: '4px solid #60a5fa' }}>
+                <span className="summary-chip-label">Días Generados</span>
+                <span className="summary-chip-val">{summary.totalGenerados}</span>
+              </div>
+              <div className="summary-chip chip-pending">
+                <span className="summary-chip-label" style={{ color: '#fbbf24' }}>
+                  Pendientes
+                </span>
+                <span className="summary-chip-val" style={{ color: '#fbbf24' }}>
+                  {summary.pendientes}
+                </span>
+              </div>
+              <div className="summary-chip chip-scheduled">
+                <span className="summary-chip-label" style={{ color: '#93c5fd' }}>
+                  Programados
+                </span>
+                <span className="summary-chip-val" style={{ color: '#93c5fd' }}>
+                  {summary.programados}
+                </span>
+              </div>
+              <div className="summary-chip chip-compensated">
+                <span className="summary-chip-label" style={{ color: '#6ee7b7' }}>
+                  Compensados
+                </span>
+                <span className="summary-chip-val" style={{ color: '#6ee7b7' }}>
+                  {summary.compensados}
+                </span>
+              </div>
+              <div className="summary-chip chip-annulled">
+                <span className="summary-chip-label">Anulados</span>
+                <span className="summary-chip-val">{summary.anulados}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. TABLA DE DÍAS DE COMPENSACIÓN DEL TRABAJADOR */}
+          <div className="table-wrapper">
+            <div className="card-header" style={{ background: '#ffffff' }}>
+              <div className="card-title" style={{ fontSize: '1rem' }}>
+                <CalendarCheck size={18} style={{ color: '#2563eb' }} />
+                <span>Control de Días Pendientes y Compensaciones (1 a 1)</span>
+              </div>
+              <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
+                Total: {employeeCompensations.length} registro(s)
+              </span>
+            </div>
+
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '160px' }}>Día Generado</th>
+                    <th style={{ width: '140px' }}>Estado</th>
+                    <th style={{ width: '180px' }}>Fecha Compensación</th>
+                    <th>Observación / Motivo</th>
+                    <th style={{ textAlign: 'right', minWidth: '220px' }}>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeeCompensations.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        <div className="empty-state">
+                          <Clock className="empty-state-icon" style={{ color: '#94a3b8' }} />
+                          <div className="empty-state-title">
+                            No hay días trabajados registrados para este trabajador
+                          </div>
+                          <div className="empty-state-desc">
+                            Haga clic en <strong>"+ Generar Día Trabajado"</strong> para registrar una guardia, feriado o día trabajado que generará compensación.
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    employeeCompensations.map((comp) => (
+                      <tr
+                        key={comp.id}
+                        style={
+                          comp.estado === 'PENDIENTE'
+                            ? { backgroundColor: '#fffdfa' }
+                            : comp.estado === 'PROGRAMADO'
+                            ? { backgroundColor: '#f9fbff' }
+                            : undefined
+                        }
+                      >
+                        {/* Día Generado */}
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Calendar size={16} style={{ color: '#2563eb' }} />
+                            <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                              {formatDate(comp.fechaGenerada)}
+                            </strong>
+                          </div>
+                        </td>
+
+                        {/* Estado */}
+                        <td>
+                          <Badge status={comp.estado} />
+                        </td>
+
+                        {/* Fecha Compensación */}
+                        <td>
+                          {comp.fechaCompensacion ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <CalendarCheck size={16} style={{ color: '#059669' }} />
+                              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                                {formatDate(comp.fechaCompensacion)}
+                              </strong>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                          )}
+                        </td>
+
+                        {/* Observación */}
+                        <td>
+                          <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                            {comp.observacion || '-'}
+                          </div>
+                          {comp.motivoAnulacion && (
+                            <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '2px' }}>
+                              <strong>Anulación:</strong> {comp.motivoAnulacion}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Acciones por estado */}
+                        <td>
+                          <div className="table-actions-cell">
+                            {/* Caso 1: PENDIENTE -> Botón Compensar (Modal de programación) */}
+                            {comp.estado === 'PENDIENTE' && (
+                              <>
+                                <Button
+                                  variant="warning"
+                                  size="sm"
+                                  onClick={() => handleOpenScheduleModal(comp)}
+                                  icon={<CalendarCheck size={14} />}
+                                >
+                                  Compensar
+                                </Button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => handlePromptAnnul(comp)}
+                                  title="Anular este día pendiente"
+                                  style={{ color: '#94a3b8' }}
+                                >
+                                  <Ban size={14} />
+                                </button>
+                              </>
+                            )}
+
+                            {/* Caso 2: PROGRAMADO -> Botón Marcar Compensado + Botón Editar + Anular */}
+                            {comp.estado === 'PROGRAMADO' && (
+                              <>
+                                <Button
+                                  variant="success"
+                                  size="sm"
+                                  onClick={() => handlePromptMarkAsCompensated(comp)}
+                                  icon={<CheckCircle2 size={14} />}
+                                  title="Confirmar que la compensación ya fue ejecutada"
+                                >
+                                  Compensado
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleOpenScheduleModal(comp)}
+                                  icon={<Edit size={14} />}
+                                  title="Modificar fecha de compensación"
+                                >
+                                  Editar
+                                </Button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => handlePromptAnnul(comp)}
+                                  title="Anular programación"
+                                  style={{ color: '#94a3b8' }}
+                                >
+                                  <Ban size={14} />
+                                </button>
+                              </>
+                            )}
+
+                            {/* Caso 3: COMPENSADO -> Ver detalle */}
+                            {comp.estado === 'COMPENSADO' && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setDetailCompensation(comp)}
+                                icon={<Eye size={14} />}
+                              >
+                                Ver
+                              </Button>
+                            )}
+
+                            {/* Caso 4: ANULADO -> Ver motivo */}
+                            {comp.estado === 'ANULADO' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDetailCompensation(comp)}
+                                icon={<FileText size={14} />}
+                              >
+                                Detalle
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="card">
+          <div className="empty-state">
+            <User className="empty-state-icon" />
+            <div className="empty-state-title">Seleccione un trabajador</div>
+            <div className="empty-state-desc">
+              Utilice el buscador superior para seleccionar un empleado y administrar sus días de compensación.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Programar Compensación (Asignar fecha 1:1) */}
+      <ScheduleCompensationModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        compensation={compensationToSchedule}
+        employee={selectedEmployee}
+        onSuccess={() => triggerRefresh()}
+      />
+
+      {/* Modal: Registrar Día Trabajado */}
+      <RegisterPendingDayModal
+        isOpen={isRegisterDayModalOpen}
+        onClose={() => setIsRegisterDayModalOpen(false)}
+        preselectedEmployee={selectedEmployee}
+        onSuccess={() => triggerRefresh()}
+      />
+
+      {/* Confirm Modal: Marcar como COMPENSADO */}
+      <ConfirmModal
+        isOpen={isMarkCompensatedConfirmOpen}
+        onClose={() => setIsMarkCompensatedConfirmOpen(false)}
+        onConfirm={handleConfirmMarkAsCompensated}
+        title="¿Confirmar compensación realizada?"
+        message={`¿Desea marcar como COMPENSADO el día generado el ${formatDate(
+          compensationToMarkCompensated?.fechaGenerada
+        )} correspondiente a la fecha programada ${formatDate(
+          compensationToMarkCompensated?.fechaCompensacion
+        )}?`}
+        confirmText="Confirmar Compensado"
+        variant="primary"
+      />
+
+      {/* Confirm Modal: Anular compensación */}
+      <ConfirmModal
+        isOpen={isAnnulConfirmOpen}
+        onClose={() => setIsAnnulConfirmOpen(false)}
+        onConfirm={handleConfirmAnnul}
+        title="¿Anular registro de compensación?"
+        message={`Está a punto de anular el día generado ${formatDate(
+          compensationToAnnul?.fechaGenerada
+        )}. Esta acción cambiará el estado a ANULADO y no podrá compensarse.`}
+        confirmText="Anular Registro"
+        variant="danger"
+        requireReason={true}
+        reasonLabel="Motivo de la anulación"
+        reasonPlaceholder="Ej. Error de digitación, cambio de disposición gerencial..."
+      />
+
+      {/* Detail Modal */}
+      {detailCompensation && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setDetailCompensation(null)}
+          onConfirm={() => setDetailCompensation(null)}
+          title="Detalle de Compensación"
+          message={`Día trabajado: ${formatDate(
+            detailCompensation.fechaGenerada
+          )} | Estado: ${detailCompensation.estado} | Fecha compensada: ${
+            formatDate(detailCompensation.fechaCompensacion) || 'No aplica'
+          }\n\nObservación: ${detailCompensation.observacion || 'Ninguna'}${
+            detailCompensation.motivoAnulacion
+              ? '\nMotivo de Anulación: ' + detailCompensation.motivoAnulacion
+              : ''
+          }`}
+          confirmText="Aceptar"
+          cancelText="Cerrar"
+          variant="primary"
+        />
+      )}
+    </div>
+  );
+};

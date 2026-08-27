@@ -1,0 +1,6 @@
+[33me8d532d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m VERSION PRELIMINAR 1.0
+[33m62272ea[m Cambiamo de nombre a la pagina
+[33m45ca732[m MEJORADO LA BASE DE DTAOS CON UN GESTOR SJON
+[33ma140cd5[m fix: corregir busqueda y sincronizacion de fechas en panel de compensaciones por fecha
+[33m343a9ca[m feat: modulo de compensacion por fecha con selector y checkbox compensar otro dia
+[33m80baa65[m init: sistema de compensaciones limpio para data real
