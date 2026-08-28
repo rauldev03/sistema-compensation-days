@@ -1,4 +1,4 @@
-import { Empleado, Feriado, Compensacion } from '../types';
+import { Empleado, Feriado, Compensacion, AprobadorPermiso } from '../types';
 
 export const INITIAL_HOLIDAYS_2026: Feriado[] = [
   {
@@ -763,5 +763,68 @@ export const INITIAL_COMPENSATIONS: Compensacion[] = [
     motivoAnulacion: null,
     createdAt: '2026-08-23T18:00:00.000Z',
     updatedAt: '2026-08-23T18:00:00.000Z'
+  }
+];
+
+export const INITIAL_APPROVERS: AprobadorPermiso[] = [
+  {
+    id: 'app-001',
+    nombreCompleto: 'Lic. María Elena Ramos Paredes',
+    cargo: 'JEFE DE RECURSOS HUMANOS',
+    area: 'RECURSOS HUMANOS',
+    documentoIdentidad: '41209845',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-002',
+    nombreCompleto: 'Ing. Roberto Chang Morales',
+    cargo: 'GERENTE DE OPERACIONES',
+    area: 'OPERACIONES',
+    documentoIdentidad: '10982341',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-003',
+    nombreCompleto: 'Ing. Víctor Hugo Alva Sánchez',
+    cargo: 'JEFE DE PLANTA SECHÍN',
+    area: 'PRODUCCIÓN',
+    documentoIdentidad: '43901234',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-004',
+    nombreCompleto: 'Ing. Manuel Benites Paredes',
+    cargo: 'JEFE DE FUNDO IV PALOS',
+    area: 'CAMPO / AGRÍCOLA',
+    documentoIdentidad: '32890123',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-005',
+    nombreCompleto: 'Ing. Fernando Castillo Prado',
+    cargo: 'GERENTE GENERAL',
+    area: 'GERENCIA GENERAL',
+    documentoIdentidad: '08761234',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-006',
+    nombreCompleto: 'Sr. David Huamán Espinoza',
+    cargo: 'SUPERVISOR DE MANTENIMIENTO',
+    area: 'MANTENIMIENTO',
+    documentoIdentidad: '45678901',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
   }
 ];

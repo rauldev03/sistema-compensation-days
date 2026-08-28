@@ -11,7 +11,8 @@ import {
   Eye,
   Calendar,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Printer
 } from 'lucide-react';
 import { Empleado, Compensacion } from '../../types';
 import { employeeService, compensationService } from '../../services';
@@ -31,6 +32,7 @@ export const WorkerCompensationPanel: React.FC = () => {
   const {
     selectedEmployeeIdForCompensations,
     setSelectedEmployeeIdForCompensations,
+    openPermissionSheetForEmployee,
     refreshKey,
     triggerRefresh
   } = useApp();
@@ -357,6 +359,16 @@ export const WorkerCompensationPanel: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openPermissionSheetForEmployee(selectedEmployee.id)}
+                  icon={<Printer size={14} style={{ color: '#2563eb' }} />}
+                  title="Generar e imprimir Hoja de Permiso Oficial Chavín para este trabajador"
+                >
+                  Hoja de Permiso
+                </Button>
+
                 <Button
                   variant="secondary"
                   size="sm"

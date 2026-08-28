@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../storage';
 
-export type NavigationTab = 'dashboard' | 'empleados' | 'compensaciones' | 'feriados';
+export type NavigationTab = 'dashboard' | 'empleados' | 'compensaciones' | 'feriados' | 'permisos';
 
 interface AppContextType {
   currentTab: NavigationTab;
@@ -9,6 +9,7 @@ interface AppContextType {
   selectedEmployeeIdForCompensations: string | null;
   setSelectedEmployeeIdForCompensations: (id: string | null) => void;
   openEmployeeCompensations: (employeeId: string) => void;
+  openPermissionSheetForEmployee: (employeeId: string) => void;
   refreshKey: number;
   triggerRefresh: () => void;
   resetDatabaseToDefaults: () => void;
@@ -38,6 +39,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentTab('compensaciones');
   };
 
+  const openPermissionSheetForEmployee = (employeeId: string) => {
+    setSelectedEmployeeIdForCompensations(employeeId);
+    setCurrentTab('permisos');
+  };
+
   const resetDatabaseToDefaults = () => {
     db.resetToDefaults();
   };
@@ -50,6 +56,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedEmployeeIdForCompensations,
         setSelectedEmployeeIdForCompensations,
         openEmployeeCompensations,
+        openPermissionSheetForEmployee,
         refreshKey,
         triggerRefresh,
         resetDatabaseToDefaults

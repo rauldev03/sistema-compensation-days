@@ -6,7 +6,8 @@ import {
   CalendarDays,
   RotateCcw,
   Sparkles,
-  Database
+  Database,
+  Printer
 } from 'lucide-react';
 import { useApp, NavigationTab } from '../../context/AppContext';
 import { dashboardService } from '../../services';
@@ -47,6 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       id: 'feriados',
       label: 'Feriados',
       icon: <CalendarDays size={20} />
+    },
+    {
+      id: 'permisos',
+      label: 'Hoja de Permiso',
+      icon: <Printer size={20} />
     }
   ];
 

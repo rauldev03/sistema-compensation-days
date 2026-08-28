@@ -6,6 +6,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { EmployeeListView } from './components/employees/EmployeeListView';
 import { CompensationsMainView } from './components/compensations/CompensationsMainView';
 import { HolidayListView } from './components/holidays/HolidayListView';
+import { PermissionSheetView } from './components/permissionSheet/PermissionSheetView';
 
 const MainViewRouter: React.FC = () => {
   const { currentTab } = useApp();
@@ -19,6 +20,8 @@ const MainViewRouter: React.FC = () => {
       return <CompensationsMainView />;
     case 'feriados':
       return <HolidayListView />;
+    case 'permisos':
+      return <PermissionSheetView />;
     default:
       return <DashboardView />;
   }

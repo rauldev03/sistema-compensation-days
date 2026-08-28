@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
-import { Empleado, Feriado, Compensacion } from '../types';
-import { INITIAL_HOLIDAYS_2026, INITIAL_EMPLOYEES, INITIAL_COMPENSATIONS } from './seedData';
+import { Empleado, Feriado, Compensacion, AprobadorPermiso } from '../types';
+import { INITIAL_HOLIDAYS_2026, INITIAL_EMPLOYEES, INITIAL_COMPENSATIONS, INITIAL_APPROVERS } from './seedData';
 import { dexieDb } from './dexieDb';
 import { parseDateString } from '../utils/dateUtils';
 
@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   EMPLOYEES: 'mf_empleados_v2',
   HOLIDAYS: 'mf_feriados_v2',
   COMPENSATIONS: 'mf_compensaciones_v2',
+  APPROVERS: 'mf_aprobadores_v1',
   INITIALIZED: 'mf_db_initialized_v2',
   MIGRATED_TO_DEXIE: 'mf_migrated_to_dexie_v1',
   WIPED_FLAG: 'adpmodul_wiped_flag'
@@ -22,6 +23,7 @@ class DatabaseDriver {
   private employeesCache: Empleado[] = [];
   private holidaysCache: Feriado[] = [];
   private compensationsCache: Compensacion[] = [];
+  private approversCache: AprobadorPermiso[] = [];
   private isLoaded: boolean = false;
 
   constructor() {
@@ -94,8 +96,9 @@ class DatabaseDriver {
         this.employeesCache = [...INITIAL_EMPLOYEES];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
         this.compensationsCache = [...INITIAL_COMPENSATIONS];
+        this.approversCache = [...INITIAL_APPROVERS];
 
-        await this.persistAllToDexie(INITIAL_EMPLOYEES, INITIAL_HOLIDAYS_2026, INITIAL_COMPENSATIONS);
+        await this.persistAllToDexie(INITIAL_EMPLOYEES, INITIAL_HOLIDAYS_2026, INITIAL_COMPENSATIONS, INITIAL_APPROVERS);
         this.isLoaded = true;
         this.notify();
         return;
@@ -104,6 +107,18 @@ class DatabaseDriver {
       // 1. Check if Dexie already has records
       const empCount = await dexieDb.empleados.count();
       const compCount = await dexieDb.compensaciones.count();
+      let rawApps: AprobadorPermiso[] = [];
+      try {
+        rawApps = await dexieDb.aprobadores.toArray();
+      } catch (_) {}
+
+      if (rawApps.length === 0) {
+        rawApps = [...INITIAL_APPROVERS];
+        try {
+          await dexieDb.aprobadores.bulkPut(INITIAL_APPROVERS);
+        } catch (_) {}
+      }
+      this.approversCache = rawApps;
 
       if (empCount > 0 || compCount > 0) {
         // Load directly from Dexie (IndexedDB) and sanitize any legacy date formats
@@ -116,17 +131,19 @@ class DatabaseDriver {
         this.compensationsCache = this.sanitizeCompensations(rawComps);
 
         // If any date was updated by sanitization, persist back to Dexie
-        this.persistAllToDexie(this.employeesCache, this.holidaysCache, this.compensationsCache).catch(() => {});
+        this.persistAllToDexie(this.employeesCache, this.holidaysCache, this.compensationsCache, this.approversCache).catch(() => {});
       } else {
         // Fresh installation: load seed data into Dexie
         await this.persistAllToDexie(
           INITIAL_EMPLOYEES,
           INITIAL_HOLIDAYS_2026,
-          INITIAL_COMPENSATIONS
+          INITIAL_COMPENSATIONS,
+          INITIAL_APPROVERS
         );
         this.employeesCache = [...INITIAL_EMPLOYEES];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
         this.compensationsCache = [...INITIAL_COMPENSATIONS];
+        this.approversCache = [...INITIAL_APPROVERS];
       }
 
       this.isLoaded = true;
@@ -138,6 +155,7 @@ class DatabaseDriver {
         this.employeesCache = [...INITIAL_EMPLOYEES];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
         this.compensationsCache = [...INITIAL_COMPENSATIONS];
+        this.approversCache = [...INITIAL_APPROVERS];
       }
       this.isLoaded = true;
       this.notify();
@@ -147,18 +165,26 @@ class DatabaseDriver {
   private async persistAllToDexie(
     emps: Empleado[],
     hols: Feriado[],
-    comps: Compensacion[]
+    comps: Compensacion[],
+    apps: AprobadorPermiso[] = this.approversCache
   ): Promise<void> {
-    await dexieDb.transaction('rw', dexieDb.empleados, dexieDb.feriados, dexieDb.compensaciones, async () => {
-      await dexieDb.empleados.clear();
-      await dexieDb.empleados.bulkPut(emps);
+    try {
+      await dexieDb.transaction('rw', dexieDb.empleados, dexieDb.feriados, dexieDb.compensaciones, dexieDb.aprobadores, async () => {
+        await dexieDb.empleados.clear();
+        await dexieDb.empleados.bulkPut(emps);
 
-      await dexieDb.feriados.clear();
-      await dexieDb.feriados.bulkPut(hols);
+        await dexieDb.feriados.clear();
+        await dexieDb.feriados.bulkPut(hols);
 
-      await dexieDb.compensaciones.clear();
-      await dexieDb.compensaciones.bulkPut(comps);
-    });
+        await dexieDb.compensaciones.clear();
+        await dexieDb.compensaciones.bulkPut(comps);
+
+        await dexieDb.aprobadores.clear();
+        await dexieDb.aprobadores.bulkPut(apps.length > 0 ? apps : INITIAL_APPROVERS);
+      });
+    } catch (err) {
+      console.error('Error in persistAllToDexie:', err);
+    }
   }
 
   public async loadSampleData(): Promise<void> {
@@ -280,6 +306,21 @@ class DatabaseDriver {
     dexieDb.compensaciones.clear()
       .then(() => dexieDb.compensaciones.bulkPut(compensations))
       .catch((err) => console.error('Error saving compensations to Dexie:', err));
+  }
+
+  // --- Aprobadores de Permisos ---
+  public getApprovers(): AprobadorPermiso[] {
+    return this.approversCache.length > 0 ? this.approversCache : INITIAL_APPROVERS;
+  }
+
+  public saveApprovers(approvers: AprobadorPermiso[]): void {
+    this.approversCache = approvers;
+    this.notify();
+
+    // Async persist to Dexie (IndexedDB)
+    dexieDb.aprobadores.clear()
+      .then(() => dexieDb.aprobadores.bulkPut(approvers))
+      .catch((err) => console.error('Error saving approvers to Dexie:', err));
   }
 
   // --- Respaldo y Restauración Masiva ---

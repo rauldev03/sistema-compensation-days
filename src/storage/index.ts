@@ -4,3 +4,4 @@ export * from './seedData';
 export * from './repositories/employeeRepository';
 export * from './repositories/holidayRepository';
 export * from './repositories/compensationRepository';
+export * from './repositories/approverRepository';
