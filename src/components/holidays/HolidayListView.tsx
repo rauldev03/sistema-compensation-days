@@ -87,22 +87,23 @@ export const HolidayListView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       {/* Header Controls */}
-      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
             Catálogo Oficial de Feriados
           </h2>
-          <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+          <span style={{ fontSize: '0.775rem', color: '#64748b' }}>
             Feriados registrados: {holidays.length}
           </span>
         </div>
 
         <Button
           variant="primary"
+          size="sm"
           onClick={handleOpenCreate}
-          icon={<CalendarPlus size={18} />}
+          icon={<CalendarPlus size={15} />}
         >
           Registrar Feriado
         </Button>
@@ -110,12 +111,14 @@ export const HolidayListView: React.FC = () => {
 
       {/* Filter by Year Bar */}
       <div className="filter-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Calendar size={18} style={{ color: '#2563eb' }} />
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
-            Filtrar por Periodo / Año:
-          </span>
-          <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Calendar size={15} style={{ color: '#2563eb' }} />
+            <span style={{ fontSize: '0.775rem', fontWeight: 600, color: '#0f172a' }}>
+              Periodo / Año:
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
             {availableYears.map((yr) => (
               <button
                 key={yr}
@@ -131,7 +134,7 @@ export const HolidayListView: React.FC = () => {
               className={`btn btn-sm ${selectedYear === 0 ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setSelectedYear(0)}
             >
-              Ver Todos los Años
+              Ver Todos
             </button>
           </div>
         </div>
@@ -143,8 +146,8 @@ export const HolidayListView: React.FC = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ width: '130px' }}>Fecha</th>
-                <th style={{ width: '150px' }}>Día</th>
+                <th style={{ width: '120px' }}>Fecha</th>
+                <th style={{ width: '130px' }}>Día</th>
                 <th>Descripción / Festividad</th>
                 <th>Estado</th>
                 <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -169,20 +172,20 @@ export const HolidayListView: React.FC = () => {
                   return (
                     <tr key={h.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Calendar size={15} style={{ color: '#2563eb' }} />
-                          <strong style={{ color: '#0f172a', fontSize: '0.925rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Calendar size={14} style={{ color: '#2563eb' }} />
+                          <strong style={{ color: '#0f172a', fontSize: '0.825rem' }}>
                             {dateInfo.formatted}
                           </strong>
                         </div>
                       </td>
                       <td>
-                        <span style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                        <span style={{ color: '#64748b', fontSize: '0.775rem' }}>
                           {dateInfo.dayName}
                         </span>
                       </td>
                       <td>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                        <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.825rem' }}>
                           {h.descripcion}
                         </span>
                       </td>
@@ -211,12 +214,12 @@ export const HolidayListView: React.FC = () => {
                           >
                             {h.estado === 'ACTIVO' ? (
                               <>
-                                <CheckCircle size={14} />
+                                <CheckCircle size={13} />
                                 <span>Activo</span>
                               </>
                             ) : (
                               <>
-                                <XCircle size={14} />
+                                <XCircle size={13} />
                                 <span>Inactivo</span>
                               </>
                             )}
@@ -229,7 +232,7 @@ export const HolidayListView: React.FC = () => {
                             onClick={() => handleOpenEdit(h)}
                             title="Editar feriado"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
 
                           {/* Delete */}
@@ -240,7 +243,7 @@ export const HolidayListView: React.FC = () => {
                             title="Eliminar feriado"
                             style={{ color: '#ef4444' }}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </td>

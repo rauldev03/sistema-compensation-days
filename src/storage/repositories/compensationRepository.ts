@@ -10,6 +10,7 @@ export interface ICompensationRepository {
   scheduleCompensation(id: string, fechaCompensacion: string, observacion?: string): Compensacion | null;
   markAsCompensated(id: string): Compensacion | null;
   annul(id: string, motivoAnulacion?: string): Compensacion | null;
+  update(id: string, updates: Partial<Compensacion>): Compensacion | null;
   delete(id: string): boolean;
   countByEmployee(empleadoId: string): number;
 }
@@ -110,6 +111,23 @@ export class CompensationRepository implements ICompensationRepository {
       ...existing,
       estado: 'ANULADO',
       motivoAnulacion: (motivoAnulacion || 'Anulado manualmente').trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    db.saveCompensations(list);
+    return updated;
+  }
+
+  public update(id: string, updates: Partial<Compensacion>): Compensacion | null {
+    const list = db.getCompensations();
+    const index = list.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+
+    const existing = list[index];
+    const updated: Compensacion = {
+      ...existing,
+      ...updates,
       updatedAt: new Date().toISOString()
     };
 

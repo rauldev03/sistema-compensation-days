@@ -243,11 +243,11 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
   const [showPreview, setShowPreview] = useState(true);
 
   // ── Sample data ──────────────────────────────────────────────────────────
-  const sampleEmployeeExcel = `41627901\tVASQUEZ MENDOZA ROSARIO JACKELINE\t41627901\t15/09/2025\tEMPLEADOS AGRÍCOLAS\tCALIDAD\tJEFE DE ASEGURAMIENTO DE CALIDAD\tCESADO\t14/03/2026
-75834244\tREYES ROJAS ALEXIS GIOMAR\t75834244\t18/03/2026\tOBREROS AGRÍCOLAS\tCALIDAD\tINSPECTOR DE ASEG. DE LA CALIDAD\tACTIVO\t`;
+  const sampleEmployeeExcel = `10000001\tPEREZ ROJAS JUAN CARLOS\t10000001\t15/01/2026\tADMINISTRACIÓN\tCONTABILIDAD\tASISTENTE CONTABLE\tACTIVO\t
+10000002\tGARCIA LOPEZ MARIA ELENA\t10000002\t01/02/2026\tOPERACIONES\tPLANTA\tOPERARIO DE PRODUCCION\tACTIVO\t`;
 
-  const sampleCompensationExcel = `41627901\t15/08/2026\t\tGuardia feriado Asunción
-75834244\t30/08/2026\t10/09/2026\tSanta Rosa de Lima programado`;
+  const sampleCompensationExcel = `10000001\t01/05/2026\t\tGuardia feriado Día del Trabajo
+10000002\t29/06/2026\t15/07/2026\tCompensación programada San Pedro`;
 
   // ── Live preview (memoized — recalculates only when text changes) ─────────
   const previewRows = useMemo(() => {
@@ -519,6 +519,20 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
     ) {
       db.clearAllData(true);
       success('Base de datos limpiada correctamente. Se eliminaron todos los empleados y compensaciones.', 'Data Limpiada');
+      triggerRefresh();
+      onClose();
+    }
+  };
+
+  // ── Load Sample Demo Data ──────────────────────────────────────────────────
+  const handleLoadSampleData = async () => {
+    if (
+      window.confirm(
+        '¿Desea cargar la data de prueba con 5 trabajadores y 50 días de compensación registrados en 2026?'
+      )
+    ) {
+      await db.loadSampleData();
+      success('Se cargaron 5 empleados y 50 registros de compensación exitosamente.', 'Data Demo Cargada');
       triggerRefresh();
       onClose();
     }
@@ -925,6 +939,18 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
                 <span>Seleccionar archivo JSON...</span>
                 <input type="file" accept=".json" onChange={handleImportBackup} style={{ display: 'none' }} />
               </label>
+            </div>
+
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#166534', marginBottom: '0.25rem' }}>
+                🚀 Cargar Data Demo (5 Empleados y 50 Compensaciones 2026)
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: '#14532d', marginBottom: '1rem' }}>
+                Carga un conjunto completo de 5 trabajadores de diferentes áreas (TI, Mantenimiento, Calidad, Producción, Logística) y 50 días de compensación generados a lo largo del 2026 en diferentes estados (Pendientes, Programados, Compensados).
+              </p>
+              <Button variant="success" onClick={handleLoadSampleData} icon={<CheckCircle2 size={16} />}>
+                Cargar 5 Empleados y 50 Registros de Prueba
+              </Button>
             </div>
 
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '1.25rem' }}>

@@ -4,7 +4,7 @@ import { INITIAL_HOLIDAYS_2026, INITIAL_EMPLOYEES, INITIAL_COMPENSATIONS } from 
 import { dexieDb } from './dexieDb';
 import { parseDateString } from '../utils/dateUtils';
 
-const CLEAN_WIPE_VERSION = 'v_adpmodul_clean_v1';
+const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_50_v3';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'mf_empleados_v2',
@@ -72,7 +72,7 @@ class DatabaseDriver {
 
   private async initDatabase(): Promise<void> {
     try {
-      // 0. Auto-clean check: Wipe legacy sample data once
+      // 0. Auto-clean check: Populate initial dataset
       const isAlreadyWiped = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.WIPED_FLAG) === CLEAN_WIPE_VERSION;
       if (!isAlreadyWiped) {
         // Delete old database if exists
@@ -90,12 +90,12 @@ class DatabaseDriver {
           localStorage.setItem(STORAGE_KEYS.WIPED_FLAG, CLEAN_WIPE_VERSION);
         } catch (_) {}
 
-        // Reset Dexie and in-memory caches to clean state
-        this.employeesCache = [];
+        // Populate with the 5 employees and 50 compensations
+        this.employeesCache = [...INITIAL_EMPLOYEES];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
-        this.compensationsCache = [];
+        this.compensationsCache = [...INITIAL_COMPENSATIONS];
 
-        await this.persistAllToDexie([], INITIAL_HOLIDAYS_2026, []);
+        await this.persistAllToDexie(INITIAL_EMPLOYEES, INITIAL_HOLIDAYS_2026, INITIAL_COMPENSATIONS);
         this.isLoaded = true;
         this.notify();
         return;
@@ -161,16 +161,34 @@ class DatabaseDriver {
     });
   }
 
-  public async resetToDefaults(): Promise<void> {
+  public async loadSampleData(): Promise<void> {
     try {
-      this.employeesCache = [];
+      this.employeesCache = [...INITIAL_EMPLOYEES];
       this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
-      this.compensationsCache = [];
+      this.compensationsCache = [...INITIAL_COMPENSATIONS];
 
       await this.persistAllToDexie(
-        [],
+        INITIAL_EMPLOYEES,
         INITIAL_HOLIDAYS_2026,
-        []
+        INITIAL_COMPENSATIONS
+      );
+      this.notify();
+    } catch (e) {
+      console.error('Error loading sample data:', e);
+      this.notify();
+    }
+  }
+
+  public async resetToDefaults(): Promise<void> {
+    try {
+      this.employeesCache = [...INITIAL_EMPLOYEES];
+      this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
+      this.compensationsCache = [...INITIAL_COMPENSATIONS];
+
+      await this.persistAllToDexie(
+        INITIAL_EMPLOYEES,
+        INITIAL_HOLIDAYS_2026,
+        INITIAL_COMPENSATIONS
       );
 
       try {

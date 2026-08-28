@@ -161,7 +161,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           <Input
             label="Código de Trabajador"
             required
-            placeholder="Ej. 41627901 o EMP-001"
+            placeholder="Ej. 12345678 o EMP-001"
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
             error={errors.codigo}
@@ -171,7 +171,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           <Input
             label="Documento de Identidad (DNI)"
             required
-            placeholder="Ej. 41627901"
+            placeholder="Ej. 12345678"
             value={documentoIdentidad}
             onChange={(e) => setDocumentoIdentidad(e.target.value)}
             error={errors.documentoIdentidad}
@@ -182,7 +182,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         <Input
           label="Apellidos y Nombres"
           required
-          placeholder="Ej. VASQUEZ MENDOZA ROSARIO JACKELINE"
+          placeholder="Ej. PEREZ ROJAS JUAN CARLOS"
           value={apellidosNombres}
           onChange={(e) => setApellidosNombres(e.target.value)}
           error={errors.apellidosNombres}

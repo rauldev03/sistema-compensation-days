@@ -3,20 +3,28 @@ import {
   CalendarClock,
   Calendar,
   ArrowRight,
-  PlusCircle
+  PlusCircle,
+  Edit2,
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { CompensacionConEmpleado, FilterOptions } from '../../types';
 import { compensationService, employeeService } from '../../services';
 import { useApp } from '../../context/AppContext';
+import { useToast } from '../../context/ToastContext';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
 import { Pagination } from '../common/Pagination';
 import { RegisterPendingDayModal } from './RegisterPendingDayModal';
+import { EditCompensationModal } from './EditCompensationModal';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { formatDateDisplay } from '../../utils/dateUtils';
+import { exportGlobalCompensationsToExcel } from '../../utils/excelExport';
 
 export const GlobalCompensationList: React.FC = () => {
   const { openEmployeeCompensations, refreshKey, triggerRefresh } = useApp();
+  const { success, error } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEstado, setSelectedEstado] = useState('TODOS');
@@ -28,6 +36,31 @@ export const GlobalCompensationList: React.FC = () => {
   const [pageSize, setPageSize] = useState(25);
 
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [compensationToEdit, setCompensationToEdit] = useState<CompensacionConEmpleado | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [compensationToDelete, setCompensationToDelete] = useState<CompensacionConEmpleado | null>(null);
+
+  const handleOpenEditModal = (comp: CompensacionConEmpleado) => {
+    setCompensationToEdit(comp);
+    setIsEditModalOpen(true);
+  };
+
+  const handlePromptDelete = (comp: CompensacionConEmpleado) => {
+    setCompensationToDelete(comp);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!compensationToDelete) return;
+    const res = compensationService.delete(compensationToDelete.id);
+    if (res.success) {
+      success('Registro de compensación eliminado exitosamente.', 'Registro Eliminado');
+      triggerRefresh();
+    } else {
+      error(res.error || 'Error al eliminar registro.');
+    }
+  };
 
   const availableYears = useMemo(() => compensationService.getAvailableYears(), [refreshKey]);
   const distinctAreas = useMemo(() => employeeService.getDistinctAreas(), [refreshKey]);
@@ -68,26 +101,53 @@ export const GlobalCompensationList: React.FC = () => {
 
   const formatDate = (dateStr?: string | null) => formatDateDisplay(dateStr);
 
+  const handleExportExcel = () => {
+    if (compensations.length === 0) {
+      return;
+    }
+
+    exportGlobalCompensationsToExcel(compensations, 'Reporte_Compensaciones');
+
+    success(
+      `Se descargó el archivo Excel (.xlsx) con ${compensations.length} registro(s).`,
+      'Excel Generado con Éxito'
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
             Registro General de Compensaciones
           </h2>
-          <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+          <span style={{ fontSize: '0.775rem', color: '#64748b' }}>
             {compensations.length} registro(s) {searchTerm || selectedEstado !== 'TODOS' || selectedYear > 0 || selectedArea !== 'TODOS' ? 'filtrado(s)' : 'históricos y activos'}
-            {totalPages > 1 && ` • Página ${safeCurrentPage} de ${totalPages}`}
+            {totalPages > 1 && ` • Pág. ${safeCurrentPage}/${totalPages}`}
           </span>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={() => setIsRegisterModalOpen(true)}
-          icon={<PlusCircle size={18} />}
-        >
-          Registrar Día Trabajado
-        </Button>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={compensations.length === 0}
+            icon={<FileSpreadsheet size={14} style={{ color: '#16a34a' }} />}
+            title="Descargar lista en formato Microsoft Excel (.xlsx)"
+          >
+            Exportar Excel
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsRegisterModalOpen(true)}
+            icon={<PlusCircle size={15} />}
+          >
+            Registrar Día Trabajado
+          </Button>
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -169,10 +229,10 @@ export const GlobalCompensationList: React.FC = () => {
                 paginatedCompensations.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <strong style={{ color: '#0f172a' }}>
+                      <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
                         {c.empleado?.apellidosNombres || 'Desconocido'}
                       </strong>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      <div style={{ fontSize: '0.725rem', color: '#64748b' }}>
                         DNI: {c.empleado?.documentoIdentidad}
                       </div>
                     </td>
@@ -180,9 +240,9 @@ export const GlobalCompensationList: React.FC = () => {
                       <span
                         style={{
                           background: '#f1f5f9',
-                          padding: '0.2rem 0.5rem',
+                          padding: '0.15rem 0.4rem',
                           borderRadius: '4px',
-                          fontSize: '0.75rem',
+                          fontSize: '0.7rem',
                           fontWeight: 600
                         }}
                       >
@@ -190,9 +250,9 @@ export const GlobalCompensationList: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                        <Calendar size={14} style={{ color: '#2563eb' }} />
-                        <strong style={{ color: '#0f172a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <Calendar size={13} style={{ color: '#2563eb' }} />
+                        <strong style={{ color: '#0f172a', fontSize: '0.825rem' }}>
                           {formatDate(c.fechaGenerada)}
                         </strong>
                       </div>
@@ -202,32 +262,54 @@ export const GlobalCompensationList: React.FC = () => {
                     </td>
                     <td>
                       {c.fechaCompensacion ? (
-                        <strong style={{ color: '#047857' }}>
+                        <strong style={{ color: '#047857', fontSize: '0.825rem' }}>
                           {formatDate(c.fechaCompensacion)}
                         </strong>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>-</span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>-</span>
                       )}
                     </td>
-                    <td style={{ maxWidth: '220px', fontSize: '0.85rem', color: '#475569' }}>
+                    <td style={{ maxWidth: '200px', fontSize: '0.8rem', color: '#475569' }}>
                       {c.observacion || '-'}
                       {c.motivoAnulacion && (
-                        <div style={{ color: '#dc2626', fontSize: '0.75rem' }}>
+                        <div style={{ color: '#dc2626', fontSize: '0.7rem' }}>
                           Anulado: {c.motivoAnulacion}
                         </div>
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => openEmployeeCompensations(c.empleadoId)}
-                        icon={<ArrowRight size={14} />}
-                        iconPosition="right"
-                        title="Ir al panel individual del trabajador"
-                      >
-                        Gestionar
-                      </Button>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.3rem', alignItems: 'center' }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleOpenEditModal(c)}
+                          icon={<Edit2 size={13} />}
+                          title="Modificar compensación"
+                        >
+                          Editar
+                        </Button>
+
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handlePromptDelete(c)}
+                          title="Eliminar registro permanentemente"
+                          style={{ color: '#ef4444' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEmployeeCompensations(c.empleadoId)}
+                          icon={<ArrowRight size={13} />}
+                          iconPosition="right"
+                          title="Ir al panel individual del trabajador"
+                        >
+                          Ver Ficha
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -247,6 +329,26 @@ export const GlobalCompensationList: React.FC = () => {
           itemLabel="compensaciones"
         />
       </div>
+
+      {/* Modal: Editar Compensación */}
+      <EditCompensationModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        compensation={compensationToEdit}
+        employee={compensationToEdit?.empleado}
+        onSuccess={() => triggerRefresh()}
+      />
+
+      {/* Confirm Modal: Eliminar */}
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="¿Eliminar registro de compensación?"
+        message={`¿Está seguro de eliminar permanentemente la compensación de ${compensationToDelete?.empleado?.apellidosNombres} (${formatDate(compensationToDelete?.fechaGenerada)})?`}
+        confirmText="Eliminar Definitivamente"
+        variant="danger"
+      />
 
       <RegisterPendingDayModal
         isOpen={isRegisterModalOpen}

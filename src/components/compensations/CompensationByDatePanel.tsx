@@ -459,40 +459,40 @@ export const CompensationByDatePanel: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
 
       {/* ── CARD PRINCIPAL DE CONTROL Y SELECCIÓN DE FECHA ── */}
       <div
         style={{
           background: 'var(--surface-card)',
           border: '1px solid var(--border-color)',
-          borderRadius: '14px',
-          padding: '1.25rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          borderRadius: 'var(--radius-md)',
+          padding: '0.75rem 1rem',
+          boxShadow: 'var(--shadow-xs)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem'
+          gap: '0.65rem'
         }}
       >
         {/* Fila 1: Selector de Fecha + Modo Dual (Compensación vs Jornada) */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           
           {/* Selector de fecha */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <label
               style={{
-                fontSize: '0.8rem',
+                fontSize: '0.75rem',
                 fontWeight: 700,
                 color: '#1e293b',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.375rem'
+                gap: '0.35rem'
               }}
             >
-              <Calendar size={15} style={{ color: '#2563eb' }} />
+              <Calendar size={14} style={{ color: '#2563eb' }} />
               1. Seleccionar Fecha a Consultar:
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
               <input
                 type="date"
                 className="form-input"
@@ -505,18 +505,18 @@ export const CompensationByDatePanel: React.FC = () => {
                   }
                 }}
                 style={{
-                  fontSize: '0.95rem',
+                  fontSize: '0.85rem',
                   fontWeight: 700,
                   color: '#0f172a',
-                  padding: '0.45rem 0.75rem',
-                  minWidth: 170
+                  padding: '0.3rem 0.6rem',
+                  minWidth: 150
                 }}
               />
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <div style={{ display: 'flex', gap: '0.2rem' }}>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  style={{ fontSize: '0.72rem', padding: '0.22rem 0.5rem' }}
                   onClick={() => {
                     setSelectedDate(todayISO());
                     setDateFilterMode('AMBOS');
@@ -528,7 +528,7 @@ export const CompensationByDatePanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  style={{ fontSize: '0.72rem', padding: '0.22rem 0.5rem' }}
                   onClick={() => {
                     setSelectedDate(offsetDateISO(-1));
                     setDateFilterMode('AMBOS');
@@ -540,7 +540,7 @@ export const CompensationByDatePanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  style={{ fontSize: '0.72rem', padding: '0.22rem 0.5rem' }}
                   onClick={() => {
                     setSelectedDate(offsetDateISO(1));
                     setDateFilterMode('AMBOS');
@@ -552,13 +552,13 @@ export const CompensationByDatePanel: React.FC = () => {
                 <button
                   type="button"
                   className={`btn btn-sm ${dateFilterMode === 'TODAS_LAS_FECHAS' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ fontSize: '0.72rem', padding: '0.22rem 0.5rem', display: 'flex', alignItems: 'center', gap: 3 }}
                   onClick={() => {
                     setDateFilterMode(dateFilterMode === 'TODAS_LAS_FECHAS' ? 'AMBOS' : 'TODAS_LAS_FECHAS');
                   }}
                   title="Ver todos los registros históricos sin filtrar por fecha"
                 >
-                  <Globe size={13} />
+                  <Globe size={12} />
                   Ver Todas ({allCompensations.length})
                 </button>
               </div>
@@ -566,20 +566,20 @@ export const CompensationByDatePanel: React.FC = () => {
           </div>
 
           {/* Selector de Modo de Consulta (Por qué fecha se filtra) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>
               2. ¿Qué trabajadores listar {dateFilterMode === 'TODAS_LAS_FECHAS' ? '(Historial Completo)' : `para el ${formatDateDisplay(selectedDate)}`}?
             </label>
-            <div style={{ display: 'flex', gap: '0.375rem', background: '#f1f5f9', padding: '3px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'flex', gap: '0.25rem', background: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
               
               {/* Botón 1: TODOS (MODO POR DEFECTO PARA QUE NUNCA SE OCULTE DATA) */}
               <button
                 type="button"
                 onClick={() => setDateFilterMode('AMBOS')}
                 style={{
-                  padding: '6px 12px',
-                  borderRadius: '7px',
-                  fontSize: '0.8rem',
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
                   fontWeight: dateFilterMode === 'AMBOS' ? 700 : 500,
                   cursor: 'pointer',
                   border: 'none',
@@ -587,17 +587,17 @@ export const CompensationByDatePanel: React.FC = () => {
                   color: dateFilterMode === 'AMBOS' ? '#ffffff' : '#334155',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
+                  gap: 5,
                   transition: 'all 0.15s'
                 }}
               >
-                <Layers size={13} />
+                <Layers size={12} />
                 <span>Todos en esta fecha</span>
                 <span
                   style={{
                     background: dateFilterMode === 'AMBOS' ? '#1d4ed8' : '#e2e8f0',
                     color: dateFilterMode === 'AMBOS' ? '#ffffff' : '#475569',
-                    padding: '1px 6px',
+                    padding: '1px 5px',
                     borderRadius: '99px',
                     fontSize: '0.72rem',
                     fontWeight: 700
@@ -1080,46 +1080,49 @@ export const CompensationByDatePanel: React.FC = () => {
 
           {/* ── TABLA DE DATOS ── */}
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid var(--border-color)' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', width: 44 }}>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', width: 36 }}>
                     <button
                       type="button"
                       onClick={toggleSelectAll}
                       title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos los elegibles'}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      {allSelected ? <CheckSquare size={18} color="#2563eb" /> : <Square size={18} color="#64748b" />}
+                      {allSelected ? <CheckSquare size={16} color="#2563eb" /> : <Square size={16} color="#64748b" />}
                     </button>
                   </th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#334155' }}>DNI</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#334155' }}>Apellidos y Nombres</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#334155' }}>Área / Cargo</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>Día Trabajado</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#334155' }}>Estado</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>Fecha Comp. Actual</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700, color: '#334155', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DNI</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700, color: '#334155', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Apellidos y Nombres</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700, color: '#334155', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Área / Cargo</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Día Trabajado</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Estado</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Fecha Comp. Actual</th>
                   
                   {/* COLUMNA CLAVE: CHECKBOX "COMPENSAR OTRO DÍA" */}
                   <th
                     style={{
-                      padding: '10px 14px',
+                      padding: '6px 10px',
                       textAlign: 'left',
                       fontWeight: 800,
                       color: '#1e40af',
                       background: '#eff6ff',
                       borderLeft: '1px solid #bfdbfe',
                       borderRight: '1px solid #bfdbfe',
-                      minWidth: 230
+                      fontSize: '0.7rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      minWidth: 200
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <CalendarDays size={14} color="#2563eb" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <CalendarDays size={13} color="#2563eb" />
                       <span>Compensar Otro Día</span>
                     </div>
                   </th>
 
-                  <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#334155', minWidth: 130 }}>Acciones</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: '#334155', minWidth: 110, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -1134,7 +1137,7 @@ export const CompensationByDatePanel: React.FC = () => {
                   const customDateVal = customCfg?.date || '';
 
                   // Row background styling
-                  let rowBg = idx % 2 === 0 ? 'var(--surface-card)' : 'var(--surface-hover)';
+                  let rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
                   if (isCustomActive) {
                     rowBg = '#fffbeb'; // Soft yellow if custom date checkbox is on
                   } else if (isChecked) {
@@ -1146,13 +1149,13 @@ export const CompensationByDatePanel: React.FC = () => {
                       key={rec.id}
                       style={{
                         background: rowBg,
-                        borderBottom: '1px solid var(--border-color)',
+                        borderBottom: '1px solid #f1f5f9',
                         transition: 'background 0.12s',
                         opacity: isAnnulled ? 0.5 : 1
                       }}
                     >
                       {/* Checkbox de selección */}
-                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                         {!isAnnulled ? (
                           <button
                             type="button"
@@ -1160,9 +1163,9 @@ export const CompensationByDatePanel: React.FC = () => {
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >
                             {isChecked ? (
-                              <CheckSquare size={17} color={bulkActionMode === 'COMPENSAR_HOY' ? '#059669' : '#2563eb'} />
+                              <CheckSquare size={15} color={bulkActionMode === 'COMPENSAR_HOY' ? '#059669' : '#2563eb'} />
                             ) : (
-                              <Square size={17} color="#94a3b8" />
+                              <Square size={15} color="#94a3b8" />
                             )}
                           </button>
                         ) : (
@@ -1171,12 +1174,12 @@ export const CompensationByDatePanel: React.FC = () => {
                       </td>
 
                       {/* DNI / Código */}
-                      <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', fontWeight: 700, color: '#1e293b', fontSize: '0.8rem' }}>
                         {rec.empleado?.documentoIdentidad || rec.empleadoId}
                       </td>
 
                       {/* Apellidos y Nombres */}
-                      <td style={{ padding: '8px 12px' }}>
+                      <td style={{ padding: '5px 8px' }}>
                         <button
                           type="button"
                           onClick={() => openEmployeeCompensations(rec.empleadoId)}
@@ -1187,6 +1190,7 @@ export const CompensationByDatePanel: React.FC = () => {
                             cursor: 'pointer',
                             fontWeight: 700,
                             color: '#0f172a',
+                            fontSize: '0.825rem',
                             textAlign: 'left',
                             display: 'block'
                           }}
@@ -1195,62 +1199,62 @@ export const CompensationByDatePanel: React.FC = () => {
                           {rec.empleado?.apellidosNombres || 'Trabajador no registrado'}
                         </button>
                         {rec.observacion && (
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {rec.observacion}
                           </div>
                         )}
                       </td>
 
                       {/* Área / Cargo */}
-                      <td style={{ padding: '8px 12px' }}>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>
+                      <td style={{ padding: '5px 8px' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155' }}>
                           {rec.empleado?.area || '—'}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
                           {rec.empleado?.cargo || '—'}
                         </div>
                       </td>
 
                       {/* Día Trabajado */}
-                      <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.775rem', fontWeight: 600 }}>
                         {formatDateDisplay(rec.fechaGenerada)}
                       </td>
 
                       {/* Estado */}
-                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                         {estadoBadge(rec.estado)}
                       </td>
 
                       {/* Fecha de Compensación Actual */}
-                      <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.775rem' }}>
                         {rec.fechaCompensacion ? (
                           <span style={{ fontWeight: 700, color: rec.estado === 'COMPENSADO' ? '#166534' : '#1e40af' }}>
                             {formatDateDisplay(rec.fechaCompensacion)}
                           </span>
                         ) : (
-                          <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.75rem' }}>Sin programar</span>
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.725rem' }}>Sin programar</span>
                         )}
                       </td>
 
                       {/* ── CELDA INTERACTIVA: CHECKBOX "COMPENSAR OTRO DÍA" ── */}
                       <td
                         style={{
-                          padding: '6px 14px',
+                          padding: '4px 10px',
                           background: isCustomActive ? '#fef3c7' : '#f8fafc',
                           borderLeft: '1px solid #bfdbfe',
                           borderRight: '1px solid #bfdbfe'
                         }}
                       >
                         {!isAlreadyCompensated && !isAnnulled ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                             {/* Checkbox de activación */}
                             <label
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '0.4rem',
+                                gap: '0.35rem',
                                 cursor: 'pointer',
-                                fontSize: '0.76rem',
+                                fontSize: '0.725rem',
                                 fontWeight: isCustomActive ? 700 : 500,
                                 color: isCustomActive ? '#92400e' : '#475569',
                                 userSelect: 'none'
@@ -1260,24 +1264,24 @@ export const CompensationByDatePanel: React.FC = () => {
                                 type="checkbox"
                                 checked={isCustomActive}
                                 onChange={() => handleToggleRowCustomDate(rec.id, rec.fechaCompensacion)}
-                                style={{ cursor: 'pointer', width: 14, height: 14 }}
+                                style={{ cursor: 'pointer', width: 13, height: 13 }}
                               />
                               <span>Compensar otro día</span>
                             </label>
 
                             {/* Selector de fecha inline al estar marcado */}
                             {isCustomActive && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                 <input
                                   type="date"
                                   className="form-input"
                                   value={customDateVal}
                                   onChange={(e) => handleRowCustomDateChange(rec.id, e.target.value)}
                                   style={{
-                                    fontSize: '0.78rem',
-                                    padding: '2px 6px',
-                                    height: '28px',
-                                    width: '135px',
+                                    fontSize: '0.75rem',
+                                    padding: '2px 4px',
+                                    height: '26px',
+                                    width: '125px',
                                     background: '#ffffff',
                                     borderColor: '#d97706',
                                     fontWeight: 700
@@ -1291,38 +1295,38 @@ export const CompensationByDatePanel: React.FC = () => {
                                   title="Guardar esta nueva fecha"
                                   className="btn btn-warning btn-sm"
                                   style={{
-                                    padding: '2px 7px',
-                                    height: '28px',
-                                    fontSize: '0.72rem',
+                                    padding: '2px 6px',
+                                    height: '26px',
+                                    fontSize: '0.7rem',
                                     fontWeight: 700
                                   }}
                                 >
-                                  <Save size={12} />
+                                  <Save size={11} />
                                 </button>
                               </div>
                             )}
                           </div>
                         ) : isAlreadyCompensated ? (
-                          <span style={{ fontSize: '0.72rem', color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle2 size={12} /> Ya compensado
+                          <span style={{ fontSize: '0.7rem', color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle2 size={11} /> Ya compensado
                           </span>
                         ) : (
-                          <span style={{ color: '#cbd5e1', fontSize: '0.72rem' }}>Anulado</span>
+                          <span style={{ color: '#cbd5e1', fontSize: '0.7rem' }}>Anulado</span>
                         )}
                       </td>
 
                       {/* Acciones Individuales Rápidas */}
-                      <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
                           {!isAlreadyCompensated && !isAnnulled && (
                             <button
                               type="button"
                               onClick={() => handleMarkSingleCompensated(rec)}
                               title="Marcar como compensado en esta fecha"
                               style={{
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                fontSize: '0.72rem',
+                                padding: '3px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
                                 fontWeight: 700,
                                 background: '#dcfce7',
                                 color: '#166534',
@@ -1330,10 +1334,10 @@ export const CompensationByDatePanel: React.FC = () => {
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 3
+                                gap: 2
                               }}
                             >
-                              <CheckCircle2 size={12} /> Compensar
+                              <CheckCircle2 size={11} /> Compensar
                             </button>
                           )}
 
@@ -1342,9 +1346,9 @@ export const CompensationByDatePanel: React.FC = () => {
                             onClick={() => openEmployeeCompensations(rec.empleadoId)}
                             title="Ver ficha completa en el panel del trabajador"
                             style={{
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              fontSize: '0.72rem',
+                              padding: '3px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
                               fontWeight: 600,
                               background: '#ffffff',
                               color: '#2563eb',
@@ -1352,10 +1356,10 @@ export const CompensationByDatePanel: React.FC = () => {
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 3
+                              gap: 2
                             }}
                           >
-                            <ArrowRight size={12} />
+                            <ArrowRight size={11} />
                           </button>
                         </div>
                       </td>

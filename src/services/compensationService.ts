@@ -243,6 +243,67 @@ export class CompensationService {
     };
   }
 
+  /**
+   * Modificar cualquier campo de una compensación (fecha generada, compensación, estado, observación)
+   */
+  public update(id: string, dto: import('../types').UpdateCompensacionDto): ApiResponse<Compensacion> {
+    const comp = compensationRepository.getById(id);
+    if (!comp) {
+      return { success: false, error: 'Registro de compensación no encontrado.' };
+    }
+
+    // Si se modifica la fecha generada, validar que no duplique con otro registro activo del mismo empleado
+    if (dto.fechaGenerada && dto.fechaGenerada !== comp.fechaGenerada) {
+      const all = compensationRepository.getByEmployeeId(comp.empleadoId);
+      const duplicate = all.find(
+        (c) => c.id !== id && c.fechaGenerada === dto.fechaGenerada && c.estado !== 'ANULADO'
+      );
+      if (duplicate) {
+        return {
+          success: false,
+          error: `El trabajador ya tiene un registro activo para la fecha ${dto.fechaGenerada}.`
+        };
+      }
+    }
+
+    const updated = compensationRepository.update(id, {
+      ...(dto.fechaGenerada ? { fechaGenerada: dto.fechaGenerada } : {}),
+      ...(dto.fechaCompensacion !== undefined ? { fechaCompensacion: dto.fechaCompensacion } : {}),
+      ...(dto.estado ? { estado: dto.estado } : {}),
+      ...(dto.observacion !== undefined ? { observacion: dto.observacion.trim() } : {}),
+      ...(dto.motivoAnulacion !== undefined ? { motivoAnulacion: dto.motivoAnulacion } : {})
+    });
+
+    if (!updated) {
+      return { success: false, error: 'No se pudo actualizar el registro.' };
+    }
+
+    return {
+      success: true,
+      data: updated
+    };
+  }
+
+  /**
+   * Eliminar permanentemente una compensación
+   */
+  public delete(id: string): ApiResponse<boolean> {
+    const comp = compensationRepository.getById(id);
+    if (!comp) {
+      return { success: false, error: 'Registro no encontrado o ya eliminado.' };
+    }
+
+    const ok = compensationRepository.delete(id);
+    if (!ok) {
+      return { success: false, error: 'No se pudo eliminar el registro.' };
+    }
+
+    return {
+      success: true,
+      data: true
+    };
+  }
+
   public getAvailableYears(): number[] {
     const compensations = compensationRepository.getAll();
     const years = new Set<number>();

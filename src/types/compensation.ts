@@ -9,7 +9,7 @@ export interface Compensacion {
   fechaCompensacion: string | null; // Formato YYYY-MM-DD (Fecha en que se compensará/compensó)
   estado: EstadoCompensacion;
   observacion: string;
-  motivoAnulacion?: string;
+  motivoAnulacion?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +39,14 @@ export interface ProgramarCompensacionDto {
 
 export interface AnularCompensacionDto {
   motivoAnulacion: string;
+}
+
+export interface UpdateCompensacionDto {
+  fechaGenerada?: string;
+  fechaCompensacion?: string | null;
+  estado?: EstadoCompensacion;
+  observacion?: string;
+  motivoAnulacion?: string | null;
 }
 
 export interface DashboardMetrics {

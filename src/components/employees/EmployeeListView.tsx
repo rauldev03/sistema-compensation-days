@@ -145,32 +145,34 @@ export const EmployeeListView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       {/* Top Header Controls */}
-      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
             Directorio de Empleados
           </h2>
-          <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+          <span style={{ fontSize: '0.775rem', color: '#64748b' }}>
             {employees.length} empleado(s) {searchTerm || selectedArea !== 'TODOS' || selectedTipo !== 'TODOS' || selectedEstado !== 'TODOS' ? 'filtrado(s)' : 'registrado(s)'}
-            {totalPages > 1 && ` • Página ${safeCurrentPage} de ${totalPages}`}
+            {totalPages > 1 && ` • Pág. ${safeCurrentPage}/${totalPages}`}
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => setIsDataModalOpen(true)}
-            icon={<Upload size={16} />}
+            icon={<Upload size={14} />}
           >
             Carga Masiva (Excel / CSV)
           </Button>
 
           <Button
             variant="primary"
+            size="sm"
             onClick={handleOpenCreate}
-            icon={<UserPlus size={18} />}
+            icon={<UserPlus size={15} />}
           >
             Registrar Empleado
           </Button>
@@ -263,14 +265,14 @@ export const EmployeeListView: React.FC = () => {
                           fontWeight: 700,
                           color: '#2563eb',
                           fontFamily: 'monospace',
-                          fontSize: '0.9rem'
+                          fontSize: '0.825rem'
                         }}
                       >
                         {emp.codigo}
                       </span>
                     </td>
                     <td>
-                      <strong style={{ color: '#0f172a', fontSize: '0.925rem' }}>
+                      <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
                         {emp.apellidosNombres}
                       </strong>
                     </td>
@@ -278,9 +280,9 @@ export const EmployeeListView: React.FC = () => {
                       <span
                         style={{
                           background: '#f1f5f9',
-                          padding: '0.2rem 0.5rem',
+                          padding: '0.15rem 0.4rem',
                           borderRadius: '4px',
-                          fontSize: '0.75rem',
+                          fontSize: '0.7rem',
                           fontWeight: 600,
                           color: '#475569'
                         }}
@@ -293,16 +295,16 @@ export const EmployeeListView: React.FC = () => {
                         style={{
                           background: '#eff6ff',
                           color: '#1d4ed8',
-                          padding: '0.2rem 0.55rem',
+                          padding: '0.15rem 0.45rem',
                           borderRadius: '4px',
-                          fontSize: '0.775rem',
+                          fontSize: '0.725rem',
                           fontWeight: 700
                         }}
                       >
                         {emp.area}
                       </span>
                     </td>
-                    <td style={{ color: '#475569', fontSize: '0.85rem' }}>{emp.cargo}</td>
+                    <td style={{ color: '#475569', fontSize: '0.8rem' }}>{emp.cargo}</td>
                     <td>
                       <Badge status={emp.estado} />
                     </td>
@@ -313,7 +315,7 @@ export const EmployeeListView: React.FC = () => {
                           variant="primary"
                           size="sm"
                           onClick={() => openEmployeeCompensations(emp.id)}
-                          icon={<CalendarClock size={14} />}
+                          icon={<CalendarClock size={13} />}
                           title="Gestionar días de compensación"
                         >
                           Compensaciones
@@ -326,7 +328,7 @@ export const EmployeeListView: React.FC = () => {
                           onClick={() => handleOpenHistory(emp)}
                           title="Ver historial completo"
                         >
-                          <History size={14} />
+                          <History size={13} />
                         </button>
 
                         {/* Edit */}
@@ -336,7 +338,7 @@ export const EmployeeListView: React.FC = () => {
                           onClick={() => handleOpenEdit(emp)}
                           title="Editar datos del empleado"
                         >
-                          <Edit2 size={14} />
+                          <Edit2 size={13} />
                         </button>
 
                         {/* Toggle Status (ACTIVO <-> CESADO) */}
@@ -357,9 +359,9 @@ export const EmployeeListView: React.FC = () => {
                           }
                         >
                           {emp.estado === 'ACTIVO' ? (
-                            <XCircle size={15} />
+                            <XCircle size={14} />
                           ) : (
-                            <CheckCircle size={15} />
+                            <CheckCircle size={14} />
                           )}
                         </button>
 
@@ -371,7 +373,7 @@ export const EmployeeListView: React.FC = () => {
                           title="Eliminar empleado (si no tiene historial)"
                           style={{ color: '#94a3b8' }}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>

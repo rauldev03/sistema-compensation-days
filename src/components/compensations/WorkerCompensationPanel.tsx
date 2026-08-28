@@ -10,7 +10,8 @@ import {
   Clock,
   Eye,
   Calendar,
-  FileText
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Empleado, Compensacion } from '../../types';
 import { employeeService, compensationService } from '../../services';
@@ -22,7 +23,9 @@ import { SearchBar } from '../common/SearchBar';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { ScheduleCompensationModal } from './ScheduleCompensationModal';
 import { RegisterPendingDayModal } from './RegisterPendingDayModal';
+import { EditCompensationModal } from './EditCompensationModal';
 import { formatDateDisplay } from '../../utils/dateUtils';
+import { exportWorkerCompensationsToExcel } from '../../utils/excelExport';
 
 export const WorkerCompensationPanel: React.FC = () => {
   const {
@@ -39,6 +42,12 @@ export const WorkerCompensationPanel: React.FC = () => {
   // Modals state
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [compensationToSchedule, setCompensationToSchedule] = useState<Compensacion | null>(null);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [compensationToEdit, setCompensationToEdit] = useState<Compensacion | null>(null);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [compensationToDelete, setCompensationToDelete] = useState<Compensacion | null>(null);
 
   const [isRegisterDayModalOpen, setIsRegisterDayModalOpen] = useState(false);
 
@@ -133,6 +142,30 @@ export const WorkerCompensationPanel: React.FC = () => {
     setIsScheduleModalOpen(true);
   };
 
+  const handleOpenEditModal = (comp: Compensacion) => {
+    setCompensationToEdit(comp);
+    setIsEditModalOpen(true);
+  };
+
+  const handlePromptDelete = (comp: Compensacion) => {
+    setCompensationToDelete(comp);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!compensationToDelete) return;
+    const res = compensationService.delete(compensationToDelete.id);
+    if (res.success) {
+      success(
+        `Registro de compensación (${formatDate(compensationToDelete.fechaGenerada)}) eliminado correctamente.`,
+        'Registro Eliminado'
+      );
+      triggerRefresh();
+    } else {
+      error(res.error || 'Error al eliminar el registro.');
+    }
+  };
+
   const handlePromptMarkAsCompensated = (comp: Compensacion) => {
     setCompensationToMarkCompensated(comp);
     setIsMarkCompensatedConfirmOpen(true);
@@ -177,37 +210,51 @@ export const WorkerCompensationPanel: React.FC = () => {
     }
   };
 
+  const handleExportExcel = () => {
+    if (!selectedEmployee || employeeCompensations.length === 0) {
+      warning('No hay registros de compensación para exportar.', 'Sin datos');
+      return;
+    }
+
+    exportWorkerCompensationsToExcel(selectedEmployee, employeeCompensations);
+
+    success(
+      `Se descargó el archivo Excel (.xlsx) con ${employeeCompensations.length} registro(s) de ${selectedEmployee.apellidosNombres}.`,
+      'Excel Generado con Éxito'
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-2.5">
       {/* 1. SECCIÓN DE BÚSQUEDA RÁPIDA DE TRABAJADOR */}
       <div
         className="card"
         style={{
-          padding: '1.25rem 1.5rem',
+          padding: '0.75rem 1rem',
           position: 'relative',
           zIndex: 50,
           border: '1px solid #cbd5e1'
         }}
       >
-        <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label
             style={{
-              fontSize: '0.8125rem',
+              fontSize: '0.75rem',
               fontWeight: 700,
               color: '#0f172a',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: '0.04em',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.375rem'
+              gap: '0.35rem'
             }}
           >
-            <Search size={16} style={{ color: '#2563eb' }} />
+            <Search size={14} style={{ color: '#2563eb' }} />
             Buscar Trabajador para gestionar días de compensación
           </label>
 
           {selectedEmployee && (
-            <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
               Actual: <strong style={{ color: '#0f172a' }}>{selectedEmployee.apellidosNombres}</strong> ({selectedEmployee.documentoIdentidad})
             </span>
           )}
@@ -229,7 +276,7 @@ export const WorkerCompensationPanel: React.FC = () => {
                     <span>
                       {searchResults.length} trabajador(es) encontrado(s) para "{searchTerm}"
                     </span>
-                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.675rem', color: '#2563eb', fontWeight: 600 }}>
                       [ENTER] o clic para seleccionar
                     </span>
                   </div>
@@ -241,23 +288,23 @@ export const WorkerCompensationPanel: React.FC = () => {
                       onMouseEnter={() => setSelectedIndex(index)}
                     >
                       <div>
-                        <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                        <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
                           {emp.apellidosNombres}
                         </strong>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '1px' }}>
                           <strong>DNI:</strong> {emp.documentoIdentidad} |{' '}
                           <strong>Área:</strong> {emp.area} |{' '}
                           <strong>Cargo:</strong> {emp.cargo}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <Badge status={emp.estado} />
                         <span
                           style={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             color: '#2563eb',
                             fontWeight: 700,
-                            padding: '0.2rem 0.5rem',
+                            padding: '0.15rem 0.4rem',
                             background: '#eff6ff',
                             borderRadius: '4px'
                           }}
@@ -284,7 +331,7 @@ export const WorkerCompensationPanel: React.FC = () => {
           <div className="worker-hero">
             <div className="worker-hero-top">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.375rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                   <h2 className="worker-hero-name">{selectedEmployee.apellidosNombres}</h2>
                   <Badge status={selectedEmployee.estado} />
                 </div>
@@ -309,22 +356,36 @@ export const WorkerCompensationPanel: React.FC = () => {
                 </div>
               </div>
 
-              <Button
-                variant="primary"
-                onClick={() => setIsRegisterDayModalOpen(true)}
-                icon={<PlusCircle size={18} />}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)'
-                }}
-              >
-                + Generar Día Trabajado
-              </Button>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  disabled={employeeCompensations.length === 0}
+                  icon={<FileSpreadsheet size={14} style={{ color: '#16a34a' }} />}
+                  title="Descargar reporte en formato Microsoft Excel (.xlsx)"
+                >
+                  Exportar Excel
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsRegisterDayModalOpen(true)}
+                  icon={<PlusCircle size={15} />}
+                  style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)'
+                  }}
+                >
+                  + Generar Día Trabajado
+                </Button>
+              </div>
             </div>
 
             {/* Chips de Resumen de Compensaciones */}
             <div className="worker-summary-chips">
-              <div className="summary-chip" style={{ borderLeft: '4px solid #60a5fa' }}>
+              <div className="summary-chip" style={{ borderLeft: '3px solid #60a5fa' }}>
                 <span className="summary-chip-label">Días Generados</span>
                 <span className="summary-chip-val">{summary.totalGenerados}</span>
               </div>
@@ -362,24 +423,36 @@ export const WorkerCompensationPanel: React.FC = () => {
           {/* 3. TABLA DE DÍAS DE COMPENSACIÓN DEL TRABAJADOR */}
           <div className="table-wrapper">
             <div className="card-header" style={{ background: '#ffffff' }}>
-              <div className="card-title" style={{ fontSize: '1rem' }}>
-                <CalendarCheck size={18} style={{ color: '#2563eb' }} />
+              <div className="card-title" style={{ fontSize: '0.9rem' }}>
+                <CalendarCheck size={16} style={{ color: '#2563eb' }} />
                 <span>Control de Días Pendientes y Compensaciones (1 a 1)</span>
               </div>
-              <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                Total: {employeeCompensations.length} registro(s)
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  Total: <strong>{employeeCompensations.length}</strong> registro(s)
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  disabled={employeeCompensations.length === 0}
+                  icon={<FileSpreadsheet size={13} style={{ color: '#16a34a' }} />}
+                  title="Descargar archivo Excel (.xlsx)"
+                >
+                  Exportar Excel
+                </Button>
+              </div>
             </div>
 
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '160px' }}>Día Generado</th>
-                    <th style={{ width: '140px' }}>Estado</th>
-                    <th style={{ width: '180px' }}>Fecha Compensación</th>
+                    <th style={{ width: '140px' }}>Día Generado</th>
+                    <th style={{ width: '125px' }}>Estado</th>
+                    <th style={{ width: '160px' }}>Fecha Compensación</th>
                     <th>Observación / Motivo</th>
-                    <th style={{ textAlign: 'right', minWidth: '220px' }}>Acción</th>
+                    <th style={{ textAlign: 'right', minWidth: '220px' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -406,14 +479,16 @@ export const WorkerCompensationPanel: React.FC = () => {
                             ? { backgroundColor: '#fffdfa' }
                             : comp.estado === 'PROGRAMADO'
                             ? { backgroundColor: '#f9fbff' }
+                            : comp.estado === 'ANULADO'
+                            ? { opacity: 0.75 }
                             : undefined
                         }
                       >
                         {/* Día Generado */}
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Calendar size={16} style={{ color: '#2563eb' }} />
-                            <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <Calendar size={14} style={{ color: '#2563eb' }} />
+                            <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
                               {formatDate(comp.fechaGenerada)}
                             </strong>
                           </div>
@@ -427,110 +502,104 @@ export const WorkerCompensationPanel: React.FC = () => {
                         {/* Fecha Compensación */}
                         <td>
                           {comp.fechaCompensacion ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <CalendarCheck size={16} style={{ color: '#059669' }} />
-                              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <CalendarCheck size={14} style={{ color: '#059669' }} />
+                              <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
                                 {formatDate(comp.fechaCompensacion)}
                               </strong>
                             </div>
                           ) : (
-                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.8rem' }}>-</span>
                           )}
                         </td>
 
                         {/* Observación */}
                         <td>
-                          <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                          <div style={{ fontSize: '0.8rem', color: '#475569' }}>
                             {comp.observacion || '-'}
                           </div>
                           {comp.motivoAnulacion && (
-                            <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '2px' }}>
+                            <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '1px' }}>
                               <strong>Anulación:</strong> {comp.motivoAnulacion}
                             </div>
                           )}
                         </td>
 
-                        {/* Acciones por estado */}
+                        {/* Acciones Completas para TODOS los estados */}
                         <td>
                           <div className="table-actions-cell">
-                            {/* Caso 1: PENDIENTE -> Botón Compensar (Modal de programación) */}
+                            {/* Acción rápida 1: PENDIENTE -> Botón Compensar */}
                             {comp.estado === 'PENDIENTE' && (
-                              <>
-                                <Button
-                                  variant="warning"
-                                  size="sm"
-                                  onClick={() => handleOpenScheduleModal(comp)}
-                                  icon={<CalendarCheck size={14} />}
-                                >
-                                  Compensar
-                                </Button>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => handlePromptAnnul(comp)}
-                                  title="Anular este día pendiente"
-                                  style={{ color: '#94a3b8' }}
-                                >
-                                  <Ban size={14} />
-                                </button>
-                              </>
+                              <Button
+                                variant="warning"
+                                size="sm"
+                                onClick={() => handleOpenScheduleModal(comp)}
+                                icon={<CalendarCheck size={13} />}
+                                title="Programar fecha de compensación"
+                              >
+                                Compensar
+                              </Button>
                             )}
 
-                            {/* Caso 2: PROGRAMADO -> Botón Marcar Compensado + Botón Editar + Anular */}
+                            {/* Acción rápida 2: PROGRAMADO -> Botón Marcar Compensado */}
                             {comp.estado === 'PROGRAMADO' && (
-                              <>
-                                <Button
-                                  variant="success"
-                                  size="sm"
-                                  onClick={() => handlePromptMarkAsCompensated(comp)}
-                                  icon={<CheckCircle2 size={14} />}
-                                  title="Confirmar que la compensación ya fue ejecutada"
-                                >
-                                  Compensado
-                                </Button>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => handleOpenScheduleModal(comp)}
-                                  icon={<Edit size={14} />}
-                                  title="Modificar fecha de compensación"
-                                >
-                                  Editar
-                                </Button>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => handlePromptAnnul(comp)}
-                                  title="Anular programación"
-                                  style={{ color: '#94a3b8' }}
-                                >
-                                  <Ban size={14} />
-                                </button>
-                              </>
-                            )}
-
-                            {/* Caso 3: COMPENSADO -> Ver detalle */}
-                            {comp.estado === 'COMPENSADO' && (
                               <Button
-                                variant="secondary"
+                                variant="success"
                                 size="sm"
-                                onClick={() => setDetailCompensation(comp)}
-                                icon={<Eye size={14} />}
+                                onClick={() => handlePromptMarkAsCompensated(comp)}
+                                icon={<CheckCircle2 size={13} />}
+                                title="Confirmar que la compensación ya fue ejecutada"
                               >
-                                Ver
+                                Compensado
                               </Button>
                             )}
 
-                            {/* Caso 4: ANULADO -> Ver motivo */}
-                            {comp.estado === 'ANULADO' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setDetailCompensation(comp)}
-                                icon={<FileText size={14} />}
+                            {/* BOTÓN UNIVERSAL: MODIFICAR / EDITAR (En TODOS los estados) */}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleOpenEditModal(comp)}
+                              icon={<Edit size={13} />}
+                              title="Modificar fecha, estado, observación o detalles"
+                            >
+                              Editar
+                            </Button>
+
+                            {/* BOTÓN UNIVERSAL: ELIMINAR (En TODOS los estados) */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handlePromptDelete(comp)}
+                              title="Eliminar permanentemente este registro"
+                              style={{ color: '#ef4444' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+
+                            {/* Anular (si está activo/pendiente/programado) */}
+                            {(comp.estado === 'PENDIENTE' || comp.estado === 'PROGRAMADO') && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => handlePromptAnnul(comp)}
+                                title="Anular compensación"
+                                style={{ color: '#94a3b8' }}
                               >
-                                Detalle
-                              </Button>
+                                <Ban size={13} />
+                              </button>
+                            )}
+
+                            {/* Ver detalle (si está compensado o anulado) */}
+                            {(comp.estado === 'COMPENSADO' || comp.estado === 'ANULADO') && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setDetailCompensation(comp)}
+                                title="Ver ficha de detalle"
+                                style={{ color: '#64748b' }}
+                              >
+                                <Eye size={13} />
+                              </button>
                             )}
                           </div>
                         </td>
@@ -563,6 +632,15 @@ export const WorkerCompensationPanel: React.FC = () => {
         onSuccess={() => triggerRefresh()}
       />
 
+      {/* Modal: Modificar / Editar Compensación Total (Para TODOS los estados) */}
+      <EditCompensationModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        compensation={compensationToEdit}
+        employee={selectedEmployee}
+        onSuccess={() => triggerRefresh()}
+      />
+
       {/* Modal: Registrar Día Trabajado */}
       <RegisterPendingDayModal
         isOpen={isRegisterDayModalOpen}
@@ -584,6 +662,19 @@ export const WorkerCompensationPanel: React.FC = () => {
         )}?`}
         confirmText="Confirmar Compensado"
         variant="primary"
+      />
+
+      {/* Confirm Modal: Eliminar Compensación Definitivamente */}
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="¿Eliminar registro de compensación?"
+        message={`¿Está seguro de eliminar permanentemente el día generado ${formatDate(
+          compensationToDelete?.fechaGenerada
+        )} (${compensationToDelete?.estado})?\nEsta acción borrará el registro de la base de datos.`}
+        confirmText="Eliminar Definitivamente"
+        variant="danger"
       />
 
       {/* Confirm Modal: Anular compensación */}

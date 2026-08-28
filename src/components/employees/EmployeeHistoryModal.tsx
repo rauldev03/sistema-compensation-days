@@ -85,12 +85,12 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: '0.75rem',
-          marginBottom: '1.25rem'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))',
+          gap: '0.5rem',
+          marginBottom: '0.75rem'
         }}
       >
-        <div className="summary-chip" style={{ borderLeft: '4px solid #3b82f6', background: '#f8fafc' }}>
+        <div className="summary-chip" style={{ borderLeft: '3px solid #3b82f6', background: '#f8fafc' }}>
           <span className="summary-chip-label" style={{ color: '#64748b' }}>Total Generados</span>
           <span className="summary-chip-val" style={{ color: '#0f172a' }}>{summary.totalGenerados}</span>
         </div>
@@ -113,16 +113,16 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
       </div>
 
       {/* Barra de Filtros del Historial */}
-      <div className="filter-bar" style={{ padding: '0.75rem 1rem', marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
+      <div className="filter-bar" style={{ padding: '0.45rem 0.65rem', marginBottom: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', width: '100%' }}>
           {/* Botones rápidos de Estado */}
-          <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
             {['TODOS', 'PENDIENTE', 'PROGRAMADO', 'COMPENSADO', 'ANULADO'].map((st) => (
               <button
                 key={st}
                 type="button"
                 className={`btn btn-sm ${selectedEstado === st ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem' }}
                 onClick={() => setSelectedEstado(st)}
               >
                 {st === 'TODOS' ? 'Todos' : st}
@@ -130,11 +130,11 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
             ))}
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
             {/* Filtro por Año */}
             <select
               className="filter-select"
-              style={{ fontSize: '0.8rem', padding: '0.35rem 1.5rem 0.35rem 0.6rem' }}
+              style={{ fontSize: '0.75rem', padding: '0.25rem 1.25rem 0.25rem 0.5rem' }}
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
             >
@@ -149,11 +149,11 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
             {/* Búsqueda por Fecha */}
             <input
               type="text"
-              placeholder="Buscar fecha (ej. 2026-05)..."
+              placeholder="Buscar fecha..."
               value={searchDate}
               onChange={(e) => setSearchDate(e.target.value)}
               className="form-input"
-              style={{ width: '180px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+              style={{ width: '140px', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
             />
           </div>
         </div>
@@ -175,7 +175,7 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
             {compensations.length === 0 ? (
               <tr>
                 <td colSpan={5}>
-                  <div className="empty-state" style={{ padding: '2.5rem 1rem' }}>
+                  <div className="empty-state" style={{ padding: '1.5rem 1rem' }}>
                     <FileText className="empty-state-icon" />
                     <div className="empty-state-title">No hay registros con los filtros seleccionados</div>
                     <div className="empty-state-desc">Pruebe cambiando los filtros de estado o año.</div>
@@ -186,9 +186,9 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
               compensations.map((comp) => (
                 <tr key={comp.id}>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Calendar size={16} style={{ color: '#2563eb' }} />
-                      <strong style={{ color: '#0f172a', fontSize: '0.9375rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Calendar size={14} style={{ color: '#2563eb' }} />
+                      <strong style={{ color: '#0f172a', fontSize: '0.825rem' }}>
                         {formatDate(comp.fechaGenerada)}
                       </strong>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PlusCircle, User, Calendar, Save, Sparkles } from 'lucide-react';
+import { PlusCircle, User, Calendar, Save, Sparkles, ChevronDown } from 'lucide-react';
 import { Empleado, CreateCompensacionDto, Compensacion } from '../../types';
 import { employeeService, holidayService, compensationService } from '../../services';
 import { useToast } from '../../context/ToastContext';
@@ -27,6 +27,7 @@ export const RegisterPendingDayModal: React.FC<RegisterPendingDayModalProps> = (
   const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [fechaGenerada, setFechaGenerada] = useState('');
+  const [selectedHolidayId, setSelectedHolidayId] = useState('');
   const [observacion, setObservacion] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,6 +46,7 @@ export const RegisterPendingDayModal: React.FC<RegisterPendingDayModalProps> = (
     setEmployeeSearch('');
     const today = new Date().toISOString().split('T')[0];
     setFechaGenerada(today);
+    setSelectedHolidayId('');
     setObservacion('');
     setErrors({});
   }, [preselectedEmployee, isOpen]);
@@ -56,9 +58,16 @@ export const RegisterPendingDayModal: React.FC<RegisterPendingDayModalProps> = (
     return employeeService.searchQuick(employeeSearch);
   }, [employeeSearch]);
 
-  const handleSelectHoliday = (date: string, holidayDesc: string) => {
-    setFechaGenerada(date);
-    setObservacion(`Feriado: ${holidayDesc}`);
+  const handleSelectHoliday = (holidayId: string) => {
+    setSelectedHolidayId(holidayId);
+    if (!holidayId) return;
+
+    const found = activeHolidays.find((h) => h.id === holidayId);
+    if (found) {
+      setFechaGenerada(found.fecha);
+      setObservacion(`Feriado: ${found.descripcion}`);
+      setErrors({});
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -254,46 +263,57 @@ export const RegisterPendingDayModal: React.FC<RegisterPendingDayModalProps> = (
           />
         </div>
 
-        {/* Feriados rápidos de sugerencia */}
+        {/* Feriados rápidos de sugerencia - Selector Desplegable */}
         {activeHolidays.length > 0 && (
-          <div>
-            <span
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label
+              htmlFor="holiday-select-autofill"
               style={{
                 fontSize: '0.75rem',
                 fontWeight: 700,
-                color: '#64748b',
+                color: '#475569',
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.375rem',
-                marginBottom: '0.375rem'
+                marginBottom: '0.35rem'
               }}
             >
               <Sparkles size={13} style={{ color: '#2563eb' }} />
-              ¿Fue en un feriado? Seleccione para autocompletar:
-            </span>
-            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', maxHeight: '110px', overflowY: 'auto' }}>
-              {activeHolidays.map((h) => (
-                <button
-                  key={h.id}
-                  type="button"
-                  onClick={() => handleSelectHoliday(h.fecha, h.descripcion)}
-                  className="btn btn-secondary btn-sm"
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '0.25rem 0.5rem',
-                    borderColor: fechaGenerada === h.fecha ? '#2563eb' : undefined,
-                    background: fechaGenerada === h.fecha ? '#eff6ff' : undefined,
-                    color: fechaGenerada === h.fecha ? '#1d4ed8' : undefined
-                  }}
-                >
-                  <Calendar size={12} />
-                  <span>
-                    {h.fecha.split('-').reverse().join('/')}: {h.descripcion}
-                  </span>
-                </button>
-              ))}
+              ¿Fue en un día feriado? (Seleccione para autocompletar):
+            </label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Calendar size={14} style={{ position: 'absolute', left: '10px', color: '#2563eb', pointerEvents: 'none' }} />
+              <select
+                id="holiday-select-autofill"
+                className="form-input"
+                value={selectedHolidayId}
+                onChange={(e) => handleSelectHoliday(e.target.value)}
+                style={{
+                  paddingLeft: '2rem',
+                  paddingRight: '2rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: selectedHolidayId ? 700 : 500,
+                  color: selectedHolidayId ? '#1d4ed8' : '#64748b',
+                  background: selectedHolidayId ? '#eff6ff' : '#ffffff',
+                  borderColor: selectedHolidayId ? '#93c5fd' : '#cbd5e1',
+                  appearance: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">-- Seleccionar feriado del catálogo oficial (Opcional) --</option>
+                {activeHolidays.map((h) => {
+                  const parts = h.fecha.split('-');
+                  const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : h.fecha;
+                  return (
+                    <option key={h.id} value={h.id}>
+                      {formatted} — {h.descripcion}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', color: '#64748b', pointerEvents: 'none' }} />
             </div>
           </div>
         )}
