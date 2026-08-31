@@ -17,7 +17,8 @@ import {
   ArrowRight,
   X,
   Globe,
-  Layers
+  Layers,
+  Printer
 } from 'lucide-react';
 import { compensationService } from '../../services/compensationService';
 import { CompensacionConEmpleado } from '../../types';
@@ -44,7 +45,7 @@ type DateFilterMode = 'AMBOS' | 'TRABAJADA' | 'COMPENSACION' | 'TODAS_LAS_FECHAS
 type BulkActionMode = 'COMPENSAR_HOY' | 'COMPENSAR_OTRO_DIA';
 
 export const CompensationByDatePanel: React.FC = () => {
-  const { refreshKey, triggerRefresh, openEmployeeCompensations } = useApp();
+  const { refreshKey, triggerRefresh, openEmployeeCompensations, openBulkPermissionSheetForDate } = useApp();
   const { success, error, warning } = useToast();
 
   // Fetch all compensations
@@ -879,6 +880,26 @@ export const CompensationByDatePanel: React.FC = () => {
                 {counts.compensado} Compensados
               </span>
             )}
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => openBulkPermissionSheetForDate(selectedDate)}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: '#1d4ed8',
+                background: '#eff6ff',
+                borderColor: '#bfdbfe',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+              title={`Generar e imprimir Hojas de Permiso en PDF para las compensaciones del ${formatDateDisplay(selectedDate)}`}
+            >
+              <Printer size={13} />
+              <span>PDF Masivo de Permisos</span>
+            </button>
           </div>
         </div>
       )}
@@ -1059,23 +1080,45 @@ export const CompensationByDatePanel: React.FC = () => {
               )}
             </div>
 
-            <button
-              type="button"
-              disabled={checkedIds.size === 0 || isProcessing || (bulkActionMode === 'COMPENSAR_OTRO_DIA' && !bulkTargetDate)}
-              onClick={handleBulkApply}
-              className={`btn btn-sm ${bulkActionMode === 'COMPENSAR_HOY' ? 'btn-success' : 'btn-primary'}`}
-              style={{ fontWeight: 700, fontSize: '0.82rem' }}
-            >
-              {bulkActionMode === 'COMPENSAR_HOY' ? (
-                <>
-                  <CheckCircle2 size={15} /> Marcar {checkedIds.size} como COMPENSADOS
-                </>
-              ) : (
-                <>
-                  <CalendarCheck size={15} /> Asignar fecha a {checkedIds.size} trabajador(es)
-                </>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => openBulkPermissionSheetForDate(selectedDate)}
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  color: '#1e40af',
+                  background: '#eff6ff',
+                  borderColor: '#93c5fd'
+                }}
+                title="Abrir generador de Hojas de Permiso para las compensaciones de esta fecha"
+              >
+                <Printer size={14} />
+                <span>🖨️ PDF Permisos</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={checkedIds.size === 0 || isProcessing || (bulkActionMode === 'COMPENSAR_OTRO_DIA' && !bulkTargetDate)}
+                onClick={handleBulkApply}
+                className={`btn btn-sm ${bulkActionMode === 'COMPENSAR_HOY' ? 'btn-success' : 'btn-primary'}`}
+                style={{ fontWeight: 700, fontSize: '0.82rem' }}
+              >
+                {bulkActionMode === 'COMPENSAR_HOY' ? (
+                  <>
+                    <CheckCircle2 size={15} /> Marcar {checkedIds.size} como COMPENSADOS
+                  </>
+                ) : (
+                  <>
+                    <CalendarCheck size={15} /> Asignar fecha a {checkedIds.size} trabajador(es)
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* ── TABLA DE DATOS ── */}
