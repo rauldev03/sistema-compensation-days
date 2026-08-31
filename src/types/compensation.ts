@@ -49,21 +49,35 @@ export interface UpdateCompensacionDto {
   motivoAnulacion?: string | null;
 }
 
+export interface WorkerPendingSummary {
+  empleadoId: string;
+  codigo: string;
+  nombre: string;
+  documento: string;
+  area: string;
+  cargo: string;
+  estadoEmpleado: string;
+  diasPendientes: number;
+  diasProgramados: number;
+  diasCompensados: number;
+  diasAnulados: number;
+  totalGenerados: number;
+}
+
+export interface PendingDaysDistributionItem {
+  dias: number;
+  cantidadTrabajadores: number;
+  totalDias: number;
+  empleadoIds: string[];
+}
+
 export interface DashboardMetrics {
   trabajadoresActivos: number;
   totalDiasPendientes: number;
   compensacionesProgramadas: number;
   compensacionesRealizadas: number;
-  topTrabajadoresPendientes: {
-    empleadoId: string;
-    codigo: string;
-    nombre: string;
-    documento: string;
-    area: string;
-    cargo: string;
-    diasPendientes: number;
-    diasProgramados: number;
-    diasCompensados: number;
-    totalGenerados: number;
-  }[];
+  topTrabajadoresPendientes: WorkerPendingSummary[];
+  distribucionDiasPendientes: PendingDaysDistributionItem[];
+  totalTrabajadoresConPendientes: number;
+  todosTrabajadoresPendientes: WorkerPendingSummary[];
 }

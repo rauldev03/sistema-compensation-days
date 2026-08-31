@@ -249,8 +249,33 @@ async function runTests() {
   assert.ok(metrics.trabajadoresActivos > 0);
   assert.ok(metrics.totalDiasPendientes >= 0);
   assert.ok(metrics.topTrabajadoresPendientes.length > 0);
+  assert.ok(Array.isArray(metrics.distribucionDiasPendientes), 'distribucionDiasPendientes debe ser un array');
+  assert.ok(Array.isArray(metrics.todosTrabajadoresPendientes), 'todosTrabajadoresPendientes debe ser un array');
+  assert.strictEqual(
+    typeof metrics.totalTrabajadoresConPendientes,
+    'number',
+    'totalTrabajadoresConPendientes debe ser un número'
+  );
+
+  // Validar coherencia de suma de distribución de días
+  const sumDistDias = metrics.distribucionDiasPendientes.reduce((acc, curr) => acc + curr.totalDias, 0);
+  assert.strictEqual(
+    sumDistDias,
+    metrics.totalDiasPendientes,
+    'La suma de días en la distribución debe ser exactamente igual a totalDiasPendientes'
+  );
+
+  const sumDistTrabajadores = metrics.distribucionDiasPendientes.reduce((acc, curr) => acc + curr.cantidadTrabajadores, 0);
+  assert.strictEqual(
+    sumDistTrabajadores,
+    metrics.totalTrabajadoresConPendientes,
+    'La suma de trabajadores en la distribución debe ser igual a totalTrabajadoresConPendientes'
+  );
+
   console.log(`   - Trabajadores Activos: ${metrics.trabajadoresActivos}`);
   console.log(`   - Total Días Pendientes: ${metrics.totalDiasPendientes}`);
+  console.log(`   - Total Trabajadores con Pendientes: ${metrics.totalTrabajadoresConPendientes}`);
+  console.log(`   - Distribución de Días Pendientes: ${JSON.stringify(metrics.distribucionDiasPendientes.map(d => `${d.dias}d: ${d.cantidadTrabajadores} trab`))}`);
   console.log(`   - Compensaciones Programadas: ${metrics.compensacionesProgramadas}`);
   console.log(`   - Compensaciones Realizadas: ${metrics.compensacionesRealizadas}`);
   console.log(`   - Top Trabajador con más pendientes: ${metrics.topTrabajadoresPendientes[0].nombre} (${metrics.topTrabajadoresPendientes[0].diasPendientes} días)`);

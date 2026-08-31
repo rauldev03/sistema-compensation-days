@@ -1017,3 +1017,165 @@
     padding-bottom: 0.2rem;
   }
 }
+
+/* ============================================================
+   DASHBOARD PENDING DAYS DISTRIBUTION & FILTERS
+   ============================================================ */
+.pending-dist-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-dist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.pending-dist-card {
+  background: #ffffff;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  text-align: left;
+  user-select: none;
+}
+
+.pending-dist-card:hover {
+  border-color: #93c5fd;
+  background-color: #f8faff;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.pending-dist-card.active {
+  border-color: #2563eb;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2), var(--shadow-xs);
+}
+
+.pending-dist-card.all-card.active {
+  border-color: #d97706;
+  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25), var(--shadow-xs);
+}
+
+.pending-dist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.pending-dist-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-navy-600);
+}
+
+.pending-dist-card.active .pending-dist-title {
+  color: #1e40af;
+}
+
+.pending-dist-card.all-card.active .pending-dist-title {
+  color: #92400e;
+}
+
+.pending-dist-workers {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-navy-900);
+  line-height: 1.1;
+  font-family: var(--font-display);
+}
+
+.pending-dist-card.active .pending-dist-workers {
+  color: #1d4ed8;
+}
+
+.pending-dist-card.all-card.active .pending-dist-workers {
+  color: #b45309;
+}
+
+.pending-dist-footer {
+  font-size: 0.675rem;
+  color: var(--color-navy-500);
+  margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pending-dist-card.active .pending-dist-footer {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.pending-dist-card.all-card.active .pending-dist-footer {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.pending-filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pending-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.725rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--color-navy-700);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.pending-filter-pill:hover {
+  background: var(--color-navy-50);
+  border-color: var(--color-navy-300);
+}
+
+.pending-filter-pill.active {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+
+.pending-badge-low {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.pending-badge-mid {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.pending-badge-high {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 800;
+}
+

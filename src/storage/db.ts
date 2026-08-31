@@ -4,7 +4,7 @@ import { INITIAL_HOLIDAYS_2026, INITIAL_EMPLOYEES, INITIAL_COMPENSATIONS, INITIA
 import { dexieDb } from './dexieDb';
 import { parseDateString } from '../utils/dateUtils';
 
-const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_50_v3';
+const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_64_v5';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'mf_empleados_v2',
