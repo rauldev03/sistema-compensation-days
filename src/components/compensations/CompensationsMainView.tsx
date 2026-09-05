@@ -106,7 +106,7 @@ export const CompensationsMainView: React.FC = () => {
             onClick={() => setIsDataModalOpen(true)}
             icon={<Upload size={13} />}
           >
-            Carga Masiva (Excel)
+            Carga Masiva Compensaciones (Excel)
           </Button>
 
           <Button
@@ -132,10 +132,11 @@ export const CompensationsMainView: React.FC = () => {
         onSuccess={() => triggerRefresh()}
       />
 
-      {/* Data Management & Bulk Import Modal */}
+      {/* Data Management & Bulk Import Modal - Modo exclusivo Compensaciones */}
       <DataManagementModal
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
+        mode="compensations"
       />
     </div>
   );

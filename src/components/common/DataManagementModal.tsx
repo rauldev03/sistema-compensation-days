@@ -13,9 +13,13 @@ import { CreateEmpleadoDto } from '../../types';
 import { employeeRepository, compensationRepository } from '../../storage';
 import { parseDateString, formatDateDisplay } from '../../utils/dateUtils';
 
+export type DataManagementMode = 'all' | 'employees' | 'compensations' | 'backup';
+
 interface DataManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
+  mode?: DataManagementMode;
+  defaultTab?: 'employees' | 'compensations' | 'backup';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -227,11 +231,31 @@ const StatusBadge: React.FC<{ row: CompPreviewRow }> = ({ row }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Modal Component
 // ─────────────────────────────────────────────────────────────────────────────
-export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClose }) => {
+export const DataManagementModal: React.FC<DataManagementModalProps> = ({
+  isOpen,
+  onClose,
+  mode = 'all',
+  defaultTab
+}) => {
   const { success, error } = useToast();
   const { triggerRefresh } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'employees' | 'compensations' | 'backup'>('employees');
+  const getInitialTab = (): 'employees' | 'compensations' | 'backup' => {
+    if (mode && mode !== 'all') return mode;
+    return defaultTab || 'employees';
+  };
+
+  const [activeTab, setActiveTab] = useState<'employees' | 'compensations' | 'backup'>(getInitialTab);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (mode && mode !== 'all') {
+        setActiveTab(mode);
+      } else if (defaultTab) {
+        setActiveTab(defaultTab);
+      }
+    }
+  }, [isOpen, mode, defaultTab]);
 
   // Employee CSV / Excel input
   const [employeeText, setEmployeeText] = useState('');
@@ -547,10 +571,22 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
       onClose={onClose}
       size="xl"
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Database size={22} style={{ color: '#2563eb' }} />
-          <span>Gestión de Datos y Carga Masiva (Excel / Backup)</span>
-        </div>
+        mode === 'employees' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <FileSpreadsheet size={22} style={{ color: '#ea580c' }} />
+            <span>Carga Masiva de Empleados (Excel / CSV)</span>
+          </div>
+        ) : mode === 'compensations' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Table size={22} style={{ color: '#2563eb' }} />
+            <span>Carga Masiva de Días de Compensación (Excel)</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Database size={22} style={{ color: '#2563eb' }} />
+            <span>Gestión de Datos y Carga Masiva (Excel / Backup)</span>
+          </div>
+        )
       }
       footer={
         <Button variant="secondary" onClick={onClose}>
@@ -559,33 +595,35 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeTab === 'employees' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('employees')}
-          >
-            <FileSpreadsheet size={15} />
-            Plantilla Empleados (Excel)
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeTab === 'compensations' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('compensations')}
-          >
-            <Table size={15} />
-            Días de Compensación (Excel)
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeTab === 'backup' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('backup')}
-          >
-            <Download size={15} />
-            Copia de Seguridad (Backup)
-          </button>
-        </div>
+        {/* Navigation Tabs (solo visibles en modo general 'all') */}
+        {mode === 'all' && (
+          <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${activeTab === 'employees' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('employees')}
+            >
+              <FileSpreadsheet size={15} />
+              Plantilla Empleados (Excel)
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${activeTab === 'compensations' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('compensations')}
+            >
+              <Table size={15} />
+              Días de Compensación (Excel)
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${activeTab === 'backup' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('backup')}
+            >
+              <Download size={15} />
+              Copia de Seguridad (Backup)
+            </button>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* TAB 1: EMPLOYEES BULK IMPORT                                       */}

@@ -215,10 +215,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
       </aside>
 
-      {/* Data Management & Bulk Import Modal */}
+      {/* Data Management & Bulk Import Modal - Modo Completo / Backup */}
       <DataManagementModal
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
+        mode="all"
       />
     </>
   );

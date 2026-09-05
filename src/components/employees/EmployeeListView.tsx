@@ -165,7 +165,7 @@ export const EmployeeListView: React.FC = () => {
             onClick={() => setIsDataModalOpen(true)}
             icon={<Upload size={14} />}
           >
-            Carga Masiva (Excel / CSV)
+            Carga Masiva Empleados (Excel)
           </Button>
 
           <Button
@@ -443,10 +443,11 @@ export const EmployeeListView: React.FC = () => {
         variant="danger"
       />
 
-      {/* Data Management & Bulk Import Modal */}
+      {/* Data Management & Bulk Import Modal - Modo exclusivo Empleados */}
       <DataManagementModal
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
+        mode="employees"
       />
     </div>
   );
