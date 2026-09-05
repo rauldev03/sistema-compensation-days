@@ -548,19 +548,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     }
   };
 
-  // ── Load Sample Demo Data ──────────────────────────────────────────────────
-  const handleLoadSampleData = async () => {
-    if (
-      window.confirm(
-        '¿Desea cargar la data de prueba con 5 trabajadores y 50 días de compensación registrados en 2026?'
-      )
-    ) {
-      await db.loadSampleData();
-      success('Se cargaron 5 empleados y 50 registros de compensación exitosamente.', 'Data Demo Cargada');
-      triggerRefresh();
-      onClose();
-    }
-  };
+
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -977,18 +965,6 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 <span>Seleccionar archivo JSON...</span>
                 <input type="file" accept=".json" onChange={handleImportBackup} style={{ display: 'none' }} />
               </label>
-            </div>
-
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1.25rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#166534', marginBottom: '0.25rem' }}>
-                🚀 Cargar Data Demo (5 Empleados y 50 Compensaciones 2026)
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: '#14532d', marginBottom: '1rem' }}>
-                Carga un conjunto completo de 5 trabajadores de diferentes áreas (TI, Mantenimiento, Calidad, Producción, Logística) y 50 días de compensación generados a lo largo del 2026 en diferentes estados (Pendientes, Programados, Compensados).
-              </p>
-              <Button variant="success" onClick={handleLoadSampleData} icon={<CheckCircle2 size={16} />}>
-                Cargar 5 Empleados y 50 Registros de Prueba
-              </Button>
             </div>
 
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '1.25rem' }}>

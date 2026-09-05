@@ -6,7 +6,7 @@ import { parseDateString } from '../utils/dateUtils';
 import { SupabaseService } from './supabaseService';
 import { isSupabaseConfigured } from './supabaseClient';
 
-const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_7days_cubas_v6';
+const CLEAN_WIPE_VERSION = 'v_adpmodul_no_mock_data_v3';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'mf_empleados_v2',
@@ -100,18 +100,27 @@ class DatabaseDriver {
           localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
           localStorage.removeItem(STORAGE_KEYS.COMPENSATIONS);
           localStorage.removeItem(STORAGE_KEYS.HOLIDAYS);
-          localStorage.removeItem(STORAGE_KEYS.INITIALIZED);
           localStorage.removeItem(STORAGE_KEYS.MIGRATED_TO_DEXIE);
+          localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+          localStorage.setItem(STORAGE_KEYS.CLEARED_BY_USER, 'true');
           localStorage.setItem(STORAGE_KEYS.WIPED_FLAG, CLEAN_WIPE_VERSION);
         } catch (_) {}
 
-        // Populate with initial data
-        this.employeesCache = [...INITIAL_EMPLOYEES];
+        // Populate with initial clean data (0 empleados y 0 compensaciones de prueba)
+        this.employeesCache = [];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
-        this.compensationsCache = [...INITIAL_COMPENSATIONS];
+        this.compensationsCache = [];
         this.approversCache = [...INITIAL_APPROVERS];
 
-        await this.persistAllToDexie(INITIAL_EMPLOYEES, INITIAL_HOLIDAYS_2026, INITIAL_COMPENSATIONS, INITIAL_APPROVERS);
+        await this.persistAllToDexie([], INITIAL_HOLIDAYS_2026, [], INITIAL_APPROVERS);
+
+        // Limpiar también en Supabase si quedaron registros de prueba antiguos
+        if (SupabaseService.isAvailable()) {
+          try {
+            await SupabaseService.clearRemoteCompensationsAndEmployees();
+          } catch (_) {}
+        }
+
         this.isLoaded = true;
         this.notify();
 
