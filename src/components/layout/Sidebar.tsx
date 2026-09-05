@@ -22,7 +22,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { currentTab, setCurrentTab, resetDatabaseToDefaults } = useApp();
+  const { currentTab, setCurrentTab, clearAllData } = useApp();
   const { user, logout } = useAuth();
   const { success } = useToast();
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
@@ -64,14 +64,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
-  const handleReset = () => {
+  const handleClearData = async () => {
     if (
       window.confirm(
-        '¿Desea limpiar toda la información? Se eliminarán todos los empleados y compensaciones cargadas (los feriados oficiales 2026 se mantendrán).'
+        '¿Desea vaciar todos los empleados y compensaciones? Esta acción dejará el sistema en limpio (0 empleados y 0 compensaciones) tanto localmente como en Supabase, listo para cargar su personal real desde Excel.'
       )
     ) {
-      resetDatabaseToDefaults();
-      success('Base de datos limpiada. Se eliminaron todos los empleados y compensaciones.', 'Data Limpiada');
+      await clearAllData(true);
+      success('Base de datos vaciada por completo. Ahora puede cargar sus empleados desde Excel.', 'Base de Datos Limpia');
     }
   };
 
@@ -133,11 +133,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <button
             type="button"
             className="db-reset-button"
-            onClick={handleReset}
-            title="Limpiar base de datos (elimina empleados y compensaciones)"
+            onClick={handleClearData}
+            title="Vaciar todos los empleados y compensaciones (no volverán a restaurarse)"
           >
             <RotateCcw size={14} />
-            <span>Limpiar Toda la Data</span>
+            <span>Vaciar Todos los Datos</span>
           </button>
 
           {/* User Session Profile & Logout */}

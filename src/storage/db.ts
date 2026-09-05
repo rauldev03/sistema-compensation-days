@@ -13,7 +13,8 @@ const STORAGE_KEYS = {
   HOLIDAYS: 'mf_feriados_v2',
   COMPENSATIONS: 'mf_compensaciones_v2',
   APPROVERS: 'mf_aprobadores_v1',
-  INITIALIZED: 'mf_db_initialized_v2',
+  INITIALIZED: 'adp_db_initialized_flag_v3',
+  CLEARED_BY_USER: 'adp_db_cleared_flag_v1',
   MIGRATED_TO_DEXIE: 'mf_migrated_to_dexie_v1',
   WIPED_FLAG: 'adpmodul_wiped_flag'
 } as const;
@@ -135,6 +136,9 @@ class DatabaseDriver {
       }
       this.approversCache = rawApps;
 
+      const userCleared = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.CLEARED_BY_USER) === 'true';
+      const isAlreadyInitialized = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.INITIALIZED) === 'true';
+
       if (empCount > 0 || compCount > 0) {
         // Load directly from Dexie (IndexedDB) and sanitize any legacy date formats
         const rawEmps = await dexieDb.empleados.toArray();
@@ -147,8 +151,14 @@ class DatabaseDriver {
 
         // If any date was updated by sanitization, persist back to Dexie
         this.persistAllToDexie(this.employeesCache, this.holidaysCache, this.compensationsCache, this.approversCache).catch(() => {});
+      } else if (userCleared || isAlreadyInitialized) {
+        // El usuario vació intencionalmente los datos para cargar su propio personal: NO auto-sembrar!
+        this.employeesCache = [];
+        this.compensationsCache = [];
+        const rawHols = await dexieDb.feriados.toArray();
+        this.holidaysCache = this.sanitizeHolidays(rawHols.length > 0 ? rawHols : INITIAL_HOLIDAYS_2026);
       } else {
-        // Fresh installation: load seed data into Dexie
+        // Fresh installation: primera vez en la vida que se abre la app
         await this.persistAllToDexie(
           INITIAL_EMPLOYEES,
           INITIAL_HOLIDAYS_2026,
@@ -159,6 +169,9 @@ class DatabaseDriver {
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
         this.compensationsCache = [...INITIAL_COMPENSATIONS];
         this.approversCache = [...INITIAL_APPROVERS];
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+        }
       }
 
       this.isLoaded = true;
@@ -336,6 +349,11 @@ class DatabaseDriver {
 
   public async resetToDefaults(): Promise<void> {
     try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.CLEARED_BY_USER);
+        localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+      }
+
       this.employeesCache = [...INITIAL_EMPLOYEES];
       this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
       this.compensationsCache = [...INITIAL_COMPENSATIONS];
@@ -350,7 +368,6 @@ class DatabaseDriver {
         localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
         localStorage.removeItem(STORAGE_KEYS.COMPENSATIONS);
         localStorage.removeItem(STORAGE_KEYS.HOLIDAYS);
-        localStorage.removeItem(STORAGE_KEYS.INITIALIZED);
         localStorage.removeItem(STORAGE_KEYS.MIGRATED_TO_DEXIE);
       } catch (_) {}
 
@@ -375,19 +392,26 @@ class DatabaseDriver {
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
       }
 
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.CLEARED_BY_USER, 'true');
+        localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+        localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
+        localStorage.removeItem(STORAGE_KEYS.COMPENSATIONS);
+        if (!keepHolidays) {
+          localStorage.removeItem(STORAGE_KEYS.HOLIDAYS);
+        }
+      }
+
       await this.persistAllToDexie(
         [],
         this.holidaysCache,
         []
       );
 
-      try {
-        localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
-        localStorage.removeItem(STORAGE_KEYS.COMPENSATIONS);
-        if (!keepHolidays) {
-          localStorage.removeItem(STORAGE_KEYS.HOLIDAYS);
-        }
-      } catch (_) {}
+      // Limpiar también en Supabase si está conectado
+      if (SupabaseService.isAvailable()) {
+        await SupabaseService.clearRemoteCompensationsAndEmployees();
+      }
 
       this.notify();
     } catch (e) {

@@ -18,6 +18,7 @@ interface AppContextType {
   refreshKey: number;
   triggerRefresh: () => void;
   resetDatabaseToDefaults: () => void;
+  clearAllData: (keepHolidays?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -63,6 +64,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     db.resetToDefaults();
   };
 
+  const clearAllData = async (keepHolidays = true) => {
+    await db.clearAllData(keepHolidays);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -79,7 +84,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openBulkPermissionSheetForDate,
         refreshKey,
         triggerRefresh,
-        resetDatabaseToDefaults
+        resetDatabaseToDefaults,
+        clearAllData
       }}
     >
       {children}

@@ -260,6 +260,20 @@ export class SupabaseService {
     }
   }
 
+  public static async clearRemoteCompensationsAndEmployees(): Promise<boolean> {
+    if (!this.isAvailable()) return false;
+    try {
+      // 1. Primero compensaciones (por la clave foránea que referencia a empleados)
+      await supabase!.from('compensaciones').delete().neq('id', '___NEVER___');
+      // 2. Luego empleados
+      await supabase!.from('empleados').delete().neq('id', '___NEVER___');
+      return true;
+    } catch (err) {
+      console.error('Error limpiando compensaciones y empleados en Supabase:', err);
+      return false;
+    }
+  }
+
   // --- SINCRONIZACIÓN EN TIEMPO REAL ---
 
   public static subscribeToAllChanges(onRemoteChange: () => void): (() => void) | null {
