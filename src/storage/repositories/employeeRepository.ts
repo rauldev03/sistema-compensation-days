@@ -35,6 +35,7 @@ export class EmployeeRepository implements IEmployeeRepository {
   public create(dto: CreateEmpleadoDto): Empleado {
     const list = this.getAll();
     const now = new Date().toISOString();
+    const initialDates = dto.fechasIngreso && dto.fechasIngreso.length > 0 ? dto.fechasIngreso : [dto.fechaIngreso];
     const newEmployee: Empleado = {
       id: 'emp-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
       codigo: dto.codigo.trim().toUpperCase(),
@@ -42,6 +43,7 @@ export class EmployeeRepository implements IEmployeeRepository {
       documentoIdentidad: dto.documentoIdentidad.trim(),
       fechaIngreso: dto.fechaIngreso,
       fechaCese: dto.fechaCese || null,
+      fechasIngreso: initialDates,
       tipoTrabajador: dto.tipoTrabajador.trim().toUpperCase(),
       area: dto.area.trim().toUpperCase(),
       cargo: dto.cargo.trim().toUpperCase(),
@@ -61,6 +63,15 @@ export class EmployeeRepository implements IEmployeeRepository {
     if (index === -1) return null;
 
     const existing = list[index];
+    let updatedFechas = dto.fechasIngreso
+      ? [...dto.fechasIngreso]
+      : (existing.fechasIngreso && existing.fechasIngreso.length > 0 ? [...existing.fechasIngreso] : [existing.fechaIngreso]);
+
+    if (dto.fechaIngreso && !updatedFechas.includes(dto.fechaIngreso)) {
+      updatedFechas.push(dto.fechaIngreso);
+      updatedFechas.sort((a, b) => a.localeCompare(b));
+    }
+
     const updated: Empleado = {
       ...existing,
       ...(dto.codigo ? { codigo: dto.codigo.trim().toUpperCase() } : {}),
@@ -68,10 +79,39 @@ export class EmployeeRepository implements IEmployeeRepository {
       ...(dto.documentoIdentidad ? { documentoIdentidad: dto.documentoIdentidad.trim() } : {}),
       ...(dto.fechaIngreso ? { fechaIngreso: dto.fechaIngreso } : {}),
       ...('fechaCese' in dto ? { fechaCese: dto.fechaCese || null } : {}),
+      fechasIngreso: updatedFechas,
       ...(dto.tipoTrabajador ? { tipoTrabajador: dto.tipoTrabajador.trim().toUpperCase() } : {}),
       ...(dto.area ? { area: dto.area.trim().toUpperCase() } : {}),
       ...(dto.cargo ? { cargo: dto.cargo.trim().toUpperCase() } : {}),
       ...(dto.estado ? { estado: dto.estado } : {}),
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    db.saveEmployees(list);
+    return updated;
+  }
+
+  public addEntryDate(id: string, newDate: string, reactivateIfCesado: boolean = true): Empleado | null {
+    const list = this.getAll();
+    const index = list.findIndex((e) => e.id === id);
+    if (index === -1) return null;
+
+    const emp = list[index];
+    const existingDates = emp.fechasIngreso && emp.fechasIngreso.length > 0 ? [...emp.fechasIngreso] : [emp.fechaIngreso];
+
+    if (!existingDates.includes(newDate)) {
+      existingDates.push(newDate);
+      existingDates.sort((a, b) => a.localeCompare(b));
+    }
+
+    const latestDate = existingDates[existingDates.length - 1];
+
+    const updated: Empleado = {
+      ...emp,
+      fechaIngreso: latestDate,
+      fechasIngreso: existingDates,
+      ...(reactivateIfCesado ? { estado: 'ACTIVO', fechaCese: null } : {}),
       updatedAt: new Date().toISOString()
     };
 

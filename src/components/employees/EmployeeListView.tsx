@@ -7,7 +7,9 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
-  Users
+  Users,
+  Calendar,
+  Upload
 } from 'lucide-react';
 import { Empleado, FilterOptions } from '../../types';
 import { employeeService } from '../../services';
@@ -20,9 +22,9 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { Pagination } from '../common/Pagination';
 import { EmployeeFormModal } from './EmployeeFormModal';
 import { EmployeeHistoryModal } from './EmployeeHistoryModal';
-
+import { EntryHistoryModal } from './EntryHistoryModal';
 import { DataManagementModal } from '../common/DataManagementModal';
-import { Upload } from 'lucide-react';
+import { formatDateDisplay } from '../../utils/dateUtils';
 
 export const EmployeeListView: React.FC = () => {
   const { openEmployeeCompensations, refreshKey, triggerRefresh } = useApp();
@@ -45,6 +47,9 @@ export const EmployeeListView: React.FC = () => {
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedEmployeeForHistory, setSelectedEmployeeForHistory] = useState<Empleado | null>(null);
+
+  // Entry Dates History Modal State
+  const [selectedEmployeeIdForEntries, setSelectedEmployeeIdForEntries] = useState<string | null>(null);
 
   // Status Change Confirmation
   const [isStatusConfirmOpen, setIsStatusConfirmOpen] = useState(false);
@@ -82,6 +87,11 @@ export const EmployeeListView: React.FC = () => {
     const startIdx = (safeCurrentPage - 1) * pageSize;
     return employees.slice(startIdx, startIdx + pageSize);
   }, [employees, safeCurrentPage, pageSize]);
+
+  const selectedEmployeeForEntries = useMemo(
+    () => (selectedEmployeeIdForEntries ? employees.find((e) => e.id === selectedEmployeeIdForEntries) || null : null),
+    [selectedEmployeeIdForEntries, employees]
+  );
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -239,6 +249,7 @@ export const EmployeeListView: React.FC = () => {
                 <th>Tipo Trabajador</th>
                 <th>Área</th>
                 <th>Cargo</th>
+                <th>Fecha Ingreso</th>
                 <th>Estado</th>
                 <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
@@ -246,7 +257,7 @@ export const EmployeeListView: React.FC = () => {
             <tbody>
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="empty-state">
                       <Users className="empty-state-icon" />
                       <div className="empty-state-title">No se encontraron empleados</div>
@@ -305,6 +316,44 @@ export const EmployeeListView: React.FC = () => {
                       </span>
                     </td>
                     <td style={{ color: '#475569', fontSize: '0.8rem' }}>{emp.cargo}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#1e293b', fontWeight: 600 }}>
+                          {formatDateDisplay(emp.fechaIngreso)}
+                        </span>
+                        {(() => {
+                          const count = emp.fechasIngreso && emp.fechasIngreso.length > 0 ? emp.fechasIngreso.length : 1;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEmployeeIdForEntries(emp.id)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                padding: '0.12rem 0.45rem',
+                                borderRadius: '9999px',
+                                fontSize: '0.675rem',
+                                fontWeight: 700,
+                                background: count > 1 ? '#dbeafe' : '#f1f5f9',
+                                color: count > 1 ? '#1d4ed8' : '#64748b',
+                                border: count > 1 ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={
+                                count > 1
+                                  ? `Tiene ${count} fechas de ingreso registradas. Clic para ver historial de reingresos.`
+                                  : 'Clic para ver o registrar una nueva fecha de reingreso'
+                              }
+                            >
+                              <Calendar size={11} />
+                              <span>{count} {count === 1 ? 'ingreso' : 'ingresos'}</span>
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    </td>
                     <td>
                       <Badge status={emp.estado} />
                     </td>
@@ -448,6 +497,13 @@ export const EmployeeListView: React.FC = () => {
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
         mode="employees"
+      />
+
+      {/* Historial de Fechas de Ingreso y Reingresos */}
+      <EntryHistoryModal
+        isOpen={!!selectedEmployeeForEntries}
+        onClose={() => setSelectedEmployeeIdForEntries(null)}
+        employee={selectedEmployeeForEntries}
       />
     </div>
   );

@@ -118,6 +118,17 @@ export class EmployeeService {
     return { success: true, data: updated };
   }
 
+  public addEntryDate(id: string, newDate: string, reactivateIfCesado = true): ApiResponse<Empleado> {
+    if (!newDate || !newDate.trim()) {
+      return { success: false, error: 'Debe ingresar una fecha de ingreso válida.' };
+    }
+    const updated = employeeRepository.addEntryDate(id, newDate.trim(), reactivateIfCesado);
+    if (!updated) {
+      return { success: false, error: 'Empleado no encontrado.' };
+    }
+    return { success: true, data: updated };
+  }
+
   public delete(id: string): ApiResponse<boolean> {
     // REGLA: No eliminar físicamente empleados que ya tengan registros históricos
     const count = compensationRepository.countByEmployee(id);
