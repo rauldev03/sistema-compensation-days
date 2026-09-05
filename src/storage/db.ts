@@ -87,7 +87,20 @@ class DatabaseDriver {
 
   private async initDatabase(): Promise<void> {
     try {
-      // 0. Auto-clean check: Populate initial dataset
+      // 0. MODO SUPABASE DIRECTO: Si Supabase está configurado, trabaja directamente con la nube
+      if (SupabaseService.isAvailable()) {
+        try {
+          await this.syncWithSupabase();
+          this.setupSupabaseRealtime();
+          this.isLoaded = true;
+          this.notify();
+          return;
+        } catch (cloudErr) {
+          console.warn('Advertencia al cargar datos directos de Supabase:', cloudErr);
+        }
+      }
+
+      // 1. Auto-clean check para modo local (cuando no hay Supabase)
       const isAlreadyWiped = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.WIPED_FLAG) === CLEAN_WIPE_VERSION;
       if (!isAlreadyWiped) {
         // Delete old database if exists
@@ -229,27 +242,21 @@ class DatabaseDriver {
         SupabaseService.fetchApprovers()
       ]);
 
-      // Si Supabase tiene datos, los adoptamos como fuente de verdad
-      const hasCloudData = (remEmps && remEmps.length > 0) || (remComps && remComps.length > 0);
-
-      if (hasCloudData) {
-        if (remEmps) this.employeesCache = this.sanitizeEmployees(remEmps);
-        if (remHols && remHols.length > 0) this.holidaysCache = this.sanitizeHolidays(remHols);
-        if (remComps) this.compensationsCache = this.sanitizeCompensations(remComps);
-        if (remApps && remApps.length > 0) this.approversCache = remApps;
-
-        await this.persistAllToDexie(this.employeesCache, this.holidaysCache, this.compensationsCache, this.approversCache);
-        this.notify();
-      } else if (remEmps !== null && remEmps.length === 0 && this.employeesCache.length > 0) {
-        // Supabase está conectado pero la tabla está vacía: poblamos la nube con los datos locales
-        console.info('Supabase está conectado pero vacío. Sembrando datos locales a la nube...');
-        await SupabaseService.uploadAllLocalDataToSupabase(
-          this.employeesCache,
-          this.holidaysCache,
-          this.compensationsCache,
-          this.approversCache
-        );
+      // Supabase es la fuente de verdad exclusiva: adoptamos su estado actual
+      if (remEmps !== null) {
+        this.employeesCache = this.sanitizeEmployees(remEmps);
       }
+      if (remHols !== null) {
+        this.holidaysCache = this.sanitizeHolidays(remHols.length > 0 ? remHols : INITIAL_HOLIDAYS_2026);
+      }
+      if (remComps !== null) {
+        this.compensationsCache = this.sanitizeCompensations(remComps);
+      }
+      if (remApps !== null) {
+        this.approversCache = remApps.length > 0 ? remApps : INITIAL_APPROVERS;
+      }
+
+      this.notify();
     } catch (err) {
       console.error('Error durante la sincronización con Supabase:', err);
     } finally {

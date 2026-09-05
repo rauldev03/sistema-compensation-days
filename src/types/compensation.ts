@@ -30,6 +30,7 @@ export interface CreateCompensacionDto {
   empleadoId: string;
   fechaGenerada: string;
   fechaCompensacion?: string | null;
+  estado?: EstadoCompensacion;
   observacion?: string;
 }
 

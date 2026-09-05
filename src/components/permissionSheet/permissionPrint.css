@@ -236,10 +236,10 @@
 
 .doc-signature-img-wrapper {
   position: absolute;
-  top: 4px;
-  left: 0;
-  right: 0;
-  bottom: 18px;
+  top: 3px;
+  left: 2px;
+  right: 2px;
+  bottom: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -248,10 +248,10 @@
 }
 
 .doc-signature-img {
-  max-height: 50px;
-  max-width: 90%;
+  max-height: 68px;
+  max-width: 95%;
   object-fit: contain;
-  filter: contrast(1.15) brightness(0.95);
+  filter: contrast(1.1) brightness(0.95);
   user-select: none;
   -webkit-user-drag: none;
 }

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Database, Upload, Download, CheckCircle2, Table,
   FileSpreadsheet, Info, AlertTriangle, XCircle, Eye, Trash2
@@ -9,7 +10,7 @@ import { db } from '../../storage';
 import { employeeService, compensationService } from '../../services';
 import { useToast } from '../../context/ToastContext';
 import { useApp } from '../../context/AppContext';
-import { CreateEmpleadoDto } from '../../types';
+import { CreateEmpleadoDto, EstadoCompensacion } from '../../types';
 import { employeeRepository, compensationRepository } from '../../storage';
 import { parseDateString, formatDateDisplay } from '../../utils/dateUtils';
 
@@ -30,12 +31,15 @@ type PreviewStatus = 'ok' | 'duplicate' | 'not_found' | 'invalid_date' | 'empty'
 interface CompPreviewRow {
   rowNum: number;
   rawDni: string;
-  fechaGenerada: string;    // YYYY-MM-DD or empty
-  fechaGeneradaRaw: string; // as pasted
+  empleadoNombre?: string;
+  fechaGenerada: string;    // YYYY-MM-DD
+  fechaGeneradaRaw: string; // original
+  estado: EstadoCompensacion;
+  fechaCompensada: string | null; // YYYY-MM-DD
+  fechaCompensadaRaw: string;     // original
   observacion: string;
   status: PreviewStatus;
   statusMsg: string;
-  empleadoNombre?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,48 +66,60 @@ const parseCompensationPreview = (
     const lower = line.toLowerCase();
     if (
       lower.includes('apellidos y nombres') ||
-      lower.includes('nro. documento') ||
-      lower.includes('fecha generada') ||
-      lower.includes('fecha trabajada') ||
-      lower.includes('horas extras') ||
-      (lower.includes('código') && lower.includes('cargo'))
+      lower.includes('fecha compensada') ||
+      (lower.includes('dni') && lower.includes('fecha')) ||
+      (lower.includes('fecha') && lower.includes('estado'))
     ) return;
 
     rowNum++;
 
-    // Split columns
+    // Split columns (tab-separated from Excel or comma/semicolon)
     const raw = line.includes('\t') ? line.split('\t') : line.split(/[,;]/);
     const cols = raw.map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
 
     if (cols.length === 0 || !cols[0]) return;
 
     let rawDni = '';
+    let nombrePasted = '';
     let fechaGeneradaRaw = '';
+    let estadoRaw = 'PENDIENTE';
+    let fechaCompensadaRaw = '';
     let observacion = '';
 
-    if (cols.length >= 11) {
-      // FORMAT A: 22-column report
+    if (cols.length >= 4) {
+      // Estructura Oficial de 5 columnas:
+      // Col 0: DNI
+      // Col 1: Apellidos y Nombres
+      // Col 2: Fecha (Fecha generada)
+      // Col 3: ESTADO (COMPENSADO, PENDIENTE, etc.)
+      // Col 4: Fecha Compensada (si existe)
       rawDni = cols[0];
-      fechaGeneradaRaw = cols[10];
-      const horasExtras = cols[21] || '';
-      const cargo = cols[5] || '';
-      observacion = cargo
-        ? `${cargo}${horasExtras ? ` | HE: ${horasExtras}h` : ''}`
-        : horasExtras ? `Horas extras: ${horasExtras}h` : '';
-    } else if (cols.length >= 2) {
-      // FORMAT B: simple
+      nombrePasted = cols[1];
+      fechaGeneradaRaw = cols[2];
+      estadoRaw = cols[3] || 'PENDIENTE';
+      fechaCompensadaRaw = cols[4] || '';
+      observacion = cols[5] || '';
+    } else if (cols.length === 3) {
+      rawDni = cols[0];
+      nombrePasted = cols[1];
+      fechaGeneradaRaw = cols[2];
+      estadoRaw = 'PENDIENTE';
+    } else if (cols.length === 2) {
       rawDni = cols[0];
       fechaGeneradaRaw = cols[1];
-      observacion = cols[3] || '';
+      estadoRaw = 'PENDIENTE';
     } else {
       rows.push({
         rowNum,
         rawDni: cols[0] || '',
         fechaGenerada: '',
         fechaGeneradaRaw: '',
+        estado: 'PENDIENTE',
+        fechaCompensada: null,
+        fechaCompensadaRaw: '',
         observacion: '',
-        status: 'invalid_date',
-        statusMsg: 'Faltan columnas (se requiere DNI y Fecha).'
+        status: 'empty',
+        statusMsg: 'Faltan columnas (se requiere al menos DNI y Fecha).'
       });
       return;
     }
@@ -114,7 +130,10 @@ const parseCompensationPreview = (
         rowNum,
         rawDni: '',
         fechaGenerada: '',
-        fechaGeneradaRaw,
+        fechaGeneradaRaw: '',
+        estado: 'PENDIENTE',
+        fechaCompensada: null,
+        fechaCompensadaRaw: '',
         observacion,
         status: 'empty',
         statusMsg: 'DNI / Código vacío.'
@@ -122,41 +141,90 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Parse date
+    // Normalizar Estado
+    let estado: EstadoCompensacion = 'PENDIENTE';
+    const estUpper = estadoRaw.trim().toUpperCase();
+    if (estUpper.includes('COMPENSAD')) {
+      estado = 'COMPENSADO';
+    } else if (estUpper.includes('PROGRAMAD')) {
+      estado = 'PROGRAMADO';
+    } else if (estUpper.includes('ANULAD')) {
+      estado = 'ANULADO';
+    } else {
+      estado = 'PENDIENTE';
+    }
+
+    // Parse fecha trabajada (fecha generada)
     const fechaGenerada = parseDateString(fechaGeneradaRaw);
     if (!fechaGenerada) {
       rows.push({
         rowNum,
         rawDni,
+        empleadoNombre: nombrePasted || undefined,
         fechaGenerada: '',
         fechaGeneradaRaw,
+        estado,
+        fechaCompensada: null,
+        fechaCompensadaRaw,
         observacion,
         status: 'invalid_date',
-        statusMsg: `Fecha "${fechaGeneradaRaw}" no reconocida. Use DD/MM/YYYY.`
+        statusMsg: `Fecha trabajada "${fechaGeneradaRaw}" no válida. Use DD/MM/AAAA.`
       });
       return;
     }
 
-    // Find employee
+    // Parse fecha compensada (si fue proporcionada)
+    let fechaCompensada: string | null = null;
+    if (fechaCompensadaRaw && fechaCompensadaRaw.trim()) {
+      fechaCompensada = parseDateString(fechaCompensadaRaw);
+      if (!fechaCompensada) {
+        rows.push({
+          rowNum,
+          rawDni,
+          empleadoNombre: nombrePasted || undefined,
+          fechaGenerada,
+          fechaGeneradaRaw,
+          estado,
+          fechaCompensada: null,
+          fechaCompensadaRaw,
+          observacion,
+          status: 'invalid_date',
+          statusMsg: `Fecha compensada "${fechaCompensadaRaw}" no válida. Use DD/MM/AAAA.`
+        });
+        return;
+      }
+    }
+
+    // Buscar empleado por DNI o código
     const idTerm = rawDni.trim().toUpperCase();
-    const emp = employees.find(
+    let emp = employees.find(
       (e) => e.codigo.toUpperCase() === idTerm || e.documentoIdentidad === idTerm
     );
+
+    // Fallback: buscar por nombre si el DNI difiere ligeramente
+    if (!emp && nombrePasted) {
+      const cleanName = nombrePasted.trim().toUpperCase();
+      emp = employees.find((e) => e.apellidosNombres.toUpperCase() === cleanName);
+    }
 
     if (!emp) {
       rows.push({
         rowNum,
         rawDni,
+        empleadoNombre: nombrePasted || undefined,
         fechaGenerada,
         fechaGeneradaRaw,
+        estado,
+        fechaCompensada,
+        fechaCompensadaRaw,
         observacion,
         status: 'not_found',
-        statusMsg: `DNI/Código "${rawDni}" no está registrado en el sistema.`
+        statusMsg: `Trabajador DNI "${rawDni}" no está registrado en el sistema.`
       });
       return;
     }
 
-    // Check duplicate in DB (excluding ANULADO)
+    // Validar duplicado en base de datos
     const dbDuplicate = existingCompensations.find(
       (c) =>
         c.empleadoId === emp.id &&
@@ -164,7 +232,7 @@ const parseCompensationPreview = (
         c.estado !== 'ANULADO'
     );
 
-    // Check intra-batch duplicate
+    // Validar duplicado en el mismo lote pegado
     const pairKey = `${emp.id}__${fechaGenerada}`;
     const batchDuplicate = seenPairs.has(pairKey);
 
@@ -172,14 +240,17 @@ const parseCompensationPreview = (
       rows.push({
         rowNum,
         rawDni,
+        empleadoNombre: emp.apellidosNombres,
         fechaGenerada,
         fechaGeneradaRaw,
+        estado,
+        fechaCompensada,
+        fechaCompensadaRaw,
         observacion,
         status: 'duplicate',
         statusMsg: dbDuplicate
           ? `${emp.apellidosNombres} ya tiene el día ${formatDateDisplay(fechaGenerada)} registrado (${dbDuplicate.estado}).`
-          : `Fila duplicada dentro de los datos pegados.`,
-        empleadoNombre: emp.apellidosNombres
+          : `Fila duplicada en el archivo.`,
       });
       return;
     }
@@ -188,12 +259,15 @@ const parseCompensationPreview = (
     rows.push({
       rowNum,
       rawDni,
+      empleadoNombre: emp.apellidosNombres,
       fechaGenerada,
       fechaGeneradaRaw,
+      estado,
+      fechaCompensada,
+      fechaCompensadaRaw,
       observacion,
       status: 'ok',
-      statusMsg: 'Listo para importar',
-      empleadoNombre: emp.apellidosNombres
+      statusMsg: 'Listo para importar'
     });
   });
 
@@ -270,8 +344,11 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
   const sampleEmployeeExcel = `10000001\tPEREZ ROJAS JUAN CARLOS\t10000001\t15/01/2026\tADMINISTRACIÓN\tCONTABILIDAD\tASISTENTE CONTABLE\tACTIVO\t
 10000002\tGARCIA LOPEZ MARIA ELENA\t10000002\t01/02/2026\tOPERACIONES\tPLANTA\tOPERARIO DE PRODUCCION\tACTIVO\t`;
 
-  const sampleCompensationExcel = `10000001\t01/05/2026\t\tGuardia feriado Día del Trabajo
-10000002\t29/06/2026\t15/07/2026\tCompensación programada San Pedro`;
+  const sampleCompensationExcel = `DNI\tApellidos y Nombres\tFecha\tESTADO\tFecha Compensada
+46356926\tISLA SANTAMARIA RODRIGO RAYMUNDO\t26/04/2026\tCOMPENSADO\t18/05/2026
+46356926\tISLA SANTAMARIA RODRIGO RAYMUNDO\t29/06/2026\tPENDIENTE\t
+42935726\tVALDEZ ZACARIAS JULIO ARMANDO\t07/05/2023\tCOMPENSADO\t04/04/2026
+42935726\tVALDEZ ZACARIAS JULIO ARMANDO\t29/06/2023\tPENDIENTE\t`;
 
   // ── Live preview (memoized — recalculates only when text changes) ─────────
   const previewRows = useMemo(() => {
@@ -370,11 +447,11 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
   // ── Parse and import compensations ───────────────────────────────────────
   const handleImportCompensations = () => {
     if (!compensationText.trim()) {
-      error('Pegue los datos de compensación para importar.');
+      error('Pegue o cargue los datos de compensación para importar.');
       return;
     }
 
-    // Use already-previewed rows to avoid re-parsing
+    // Usar directamente las filas validadas en la previsualización
     const toImport = previewRows.filter((r) => r.status === 'ok');
 
     if (toImport.length === 0) {
@@ -393,87 +470,18 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
       return;
     }
 
-    // Re-run bulkCreate with only valid rows
-    const lines = compensationText.trim().split(/\r?\n/);
-    const items: {
-      identificadorTrabajador: string;
-      fechaGenerada: string;
-      fechaCompensacion?: string | null;
-      observacion?: string;
-    }[] = [];
-    const parseErrors: string[] = [];
-
-    lines.forEach((line, idx) => {
-      if (!line.trim() || line.startsWith('#')) return;
-
-      const lower = line.toLowerCase();
-      if (
-        lower.includes('apellidos y nombres') ||
-        lower.includes('nro. documento') ||
-        lower.includes('fecha generada') ||
-        lower.includes('fecha trabajada') ||
-        lower.includes('horas extras') ||
-        (lower.includes('código') && lower.includes('cargo'))
-      ) {
-        return;
-      }
-
-      const raw = line.includes('\t') ? line.split('\t') : line.split(/[,;]/);
-      const cols = raw.map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
-
-      if (cols.length === 0 || !cols[0]) return;
-
-      let identificadorTrabajador = '';
-      let fechaGenerada = '';
-      let observacion = '';
-
-      if (cols.length >= 11) {
-        identificadorTrabajador = cols[0];
-        fechaGenerada = parseDateString(cols[10]);
-        const horasExtras = cols[21] || '';
-        const cargo = cols[5] || '';
-        observacion = cargo
-          ? `${cargo}${horasExtras ? ` | HE: ${horasExtras}h` : ''}`
-          : horasExtras
-          ? `Horas extras: ${horasExtras}h`
-          : '';
-      } else {
-        if (cols.length < 2) {
-          parseErrors.push(`Fila #${idx + 1}: Faltan datos (se requiere DNI/Código y Fecha trabajada).`);
-          return;
-        }
-        identificadorTrabajador = cols[0];
-        fechaGenerada = parseDateString(cols[1]);
-        observacion = cols[3] || '';
-      }
-
-      if (!identificadorTrabajador) {
-        parseErrors.push(`Fila #${idx + 1}: DNI/Código vacío.`);
-        return;
-      }
-
-      if (!fechaGenerada) {
-        parseErrors.push(`Fila #${idx + 1} (${identificadorTrabajador}): Fecha no reconocida.`);
-        return;
-      }
-
-      items.push({
-        identificadorTrabajador,
-        fechaGenerada,
-        fechaCompensacion: null,
-        observacion
-      });
-    });
-
-    if (items.length === 0) {
-      error('No se encontraron registros válidos.');
-      return;
-    }
+    const items = toImport.map((row) => ({
+      identificadorTrabajador: row.rawDni,
+      fechaGenerada: row.fechaGenerada,
+      estado: row.estado,
+      fechaCompensacion: row.fechaCompensada || null,
+      observacion: row.observacion || ''
+    }));
 
     const res = compensationService.bulkCreate(items);
     setCompensationResults({
       imported: res.importedCount,
-      errors: [...parseErrors, ...res.errors]
+      errors: res.errors
     });
 
     if (res.importedCount > 0) {
@@ -484,19 +492,39 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     }
   };
 
-  // ── File Upload Handlers ─────────────────────────────────────────────────
+  // ── File Upload Handlers (soporta .xlsx, .xls, .csv, .txt) ───────────────
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'emp' | 'comp') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        if (target === 'emp') setEmployeeText(text);
-        else setCompensationText(text);
-      }
-    };
-    reader.readAsText(file);
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const tsv = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
+          if (target === 'emp') setEmployeeText(tsv);
+          else setCompensationText(tsv);
+          success(`Archivo Excel "${file.name}" cargado correctamente.`);
+        } catch (err: any) {
+          error('Error al procesar archivo Excel: ' + (err?.message || 'formato no reconocido'));
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          if (target === 'emp') setEmployeeText(text);
+          else setCompensationText(text);
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   // ── Export JSON Backup ───────────────────────────────────────────────────
@@ -649,10 +677,10 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <label className="form-label">Pegar filas copiadas de Excel o CSV:</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <label className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', color: '#2563eb', cursor: 'pointer' }}>
+                  <label className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', color: '#ea580c', cursor: 'pointer' }}>
                     <Upload size={13} />
-                    <span>Cargar archivo .CSV / .TXT</span>
-                    <input type="file" accept=".csv,.txt" onChange={(e) => handleFileUpload(e, 'emp')} style={{ display: 'none' }} />
+                    <span>Subir archivo Excel (.xlsx) o CSV</span>
+                    <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(e) => handleFileUpload(e, 'emp')} style={{ display: 'none' }} />
                   </label>
                   <button
                     type="button"
@@ -707,38 +735,51 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
         {activeTab === 'compensations' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Info box */}
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.825rem', color: '#1e40af' }}>
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.825rem', color: '#166534' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700, marginBottom: '0.5rem' }}>
                 <Info size={16} />
-                <span>Compatible con el Reporte de Compensación Laboral (22 columnas)</span>
+                <span>Estructura de Carga de Compensaciones (5 Columnas)</span>
               </div>
-              <p style={{ margin: '0 0 0.5rem' }}>
-                Copia y pega las filas directamente desde tu reporte. El encabezado es ignorado automáticamente. Los DNI con espacios se limpian solos.
+              <p style={{ margin: '0 0 0.5rem', color: '#374151' }}>
+                Sube tu archivo Excel <code>.xlsx</code> directamente o copia y pega las filas desde tu hoja de cálculo. El sistema detecta e ignora el encabezado automáticamente:
               </p>
-              {/* Column mapping table */}
+              {/* Column mapping table matching user's Excel */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse', background: '#ffffff', border: '1px solid #bfdbfe' }}>
-                  <thead style={{ background: '#2563eb', color: '#ffffff' }}>
+                <table style={{ width: '100%', fontSize: '0.72rem', borderCollapse: 'collapse', background: '#ffffff', border: '1px solid #cbd5e1' }}>
+                  <thead style={{ background: '#0f766e', color: '#ffffff' }}>
                     <tr>
-                      <th style={{ padding: '3px 6px', border: '1px solid #bfdbfe' }}>Col 1</th>
-                      <th style={{ padding: '3px 6px', border: '1px solid #bfdbfe' }}>Col 2</th>
-                      <th style={{ padding: '3px 6px', border: '1px solid #bfdbfe' }}>Col 6</th>
-                      <th style={{ padding: '3px 6px', border: '1px solid #bfdbfe' }}>Col 11</th>
-                      <th style={{ padding: '3px 6px', border: '1px solid #bfdbfe' }}>Col 22</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Col A (1)</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Col B (2)</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Col C (3)</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Col D (4)</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Col E (5)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr style={{ background: '#eff6ff' }}>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', fontWeight: 600, color: '#1e3a8a' }}>✅ Código (DNI)</td>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', color: '#64748b' }}>Apellidos y Nombres</td>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', color: '#64748b' }}>✅ Cargo</td>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', fontWeight: 600, color: '#1e3a8a' }}>✅ Fecha</td>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', color: '#64748b' }}>Horas Extras</td>
+                    <tr style={{ background: '#f1f5f9', fontWeight: 700, color: '#0f172a' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>DNI</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>Apellidos y Nombres</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>Fecha</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>ESTADO</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>Fecha Compensada</td>
                     </tr>
-                    <tr>
-                      <td style={{ padding: '3px 6px', border: '1px solid #bfdbfe', fontSize: '0.65rem', color: '#374151' }} colSpan={5}>
-                        Las columnas marcadas con ✅ se usan. El resto se ignora. También acepta formato simple: <code>DNI [Tab] DD/MM/YYYY</code>
+                    <tr style={{ background: '#ffffff', color: '#334155' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontWeight: 600 }}>46356926</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>ISLA SANTAMARIA RODRIGO RAYMUNDO</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}>26/04/2026</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>
+                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem' }}>COMPENSADO</span>
                       </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}>18/05/2026</td>
+                    </tr>
+                    <tr style={{ background: '#f8fafc', color: '#334155' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontWeight: 600 }}>46356926</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>ISLA SANTAMARIA RODRIGO RAYMUNDO</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}>29/06/2026</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>
+                        <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem' }}>PENDIENTE</span>
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #cbd5e1', color: '#94a3b8', fontStyle: 'italic' }}>(vacío)</td>
                     </tr>
                   </tbody>
                 </table>
@@ -747,9 +788,14 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
             {/* Textarea */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                <label className="form-label">Pegar filas del Reporte de Excel:</label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <label className="form-label">Pegar filas del Excel o subir archivo:</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', color: '#0f766e', cursor: 'pointer' }}>
+                    <Upload size={13} />
+                    <span>Subir archivo Excel (.xlsx)</span>
+                    <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(e) => handleFileUpload(e, 'comp')} style={{ display: 'none' }} />
+                  </label>
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
@@ -773,7 +819,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 className="form-textarea"
                 rows={5}
                 style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'pre' }}
-                placeholder={"Pega aquí las filas del reporte (con o sin encabezado):\n76691593\tABAD AGUILAR, YUMAR ABEL\t76691593\tMASCULINO\t079\tINSPECTOR...\t\t\tCA3\tPLANTA SECHIN\t23/07/2026\tPRESENTE\t2.00\t07:02:30\t19:16:41\t\t\t\t\t12.23\t8.00\t4.23"}
+                placeholder={"Pega aquí las filas de tu Excel (con o sin encabezado):\n46356926\tISLA SANTAMARIA RODRIGO RAYMUNDO\t26/04/2026\tCOMPENSADO\t18/05/2026\n46356926\tISLA SANTAMARIA RODRIGO RAYMUNDO\t29/06/2026\tPENDIENTE\t\n42935726\tVALDEZ ZACARIAS JULIO ARMANDO\t07/05/2023\tCOMPENSADO\t04/04/2026"}
                 value={compensationText}
                 onChange={(e) => { setCompensationText(e.target.value); setCompensationResults(null); }}
               />
@@ -839,16 +885,17 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 )}
 
                 {/* Preview table */}
-                <div style={{ overflowX: 'auto', maxHeight: '260px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse', minWidth: '600px' }}>
+                <div style={{ overflowX: 'auto', maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                  <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse', minWidth: '650px' }}>
                     <thead style={{ position: 'sticky', top: 0, background: '#1e293b', color: '#ffffff', zIndex: 1 }}>
                       <tr>
                         <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>#</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>DNI / Código</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Trabajador encontrado</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Fecha trabajada</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Observación</th>
-                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Estado</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>DNI</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Trabajador</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Fecha Trabajada</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Estado Excel</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Fecha Compensada</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Validación</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -868,7 +915,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                             <td style={{ padding: '5px 10px', color: row.empleadoNombre ? '#1e293b' : '#ef4444' }}>
                               {row.empleadoNombre
                                 ? <span style={{ fontWeight: 600 }}>{row.empleadoNombre}</span>
-                                : <span style={{ fontStyle: 'italic', color: '#ef4444' }}>No encontrado</span>
+                                : <span style={{ fontStyle: 'italic', color: '#ef4444' }}>No registrado</span>
                               }
                             </td>
                             <td style={{ padding: '5px 10px', fontFamily: 'monospace', color: row.fechaGenerada ? '#1e293b' : '#ef4444' }}>
@@ -877,9 +924,29 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                                 : <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{row.fechaGeneradaRaw || '(vacío)'}</span>
                               }
                             </td>
-                            <td style={{ padding: '5px 10px', color: '#475569', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              title={row.observacion}>
-                              {row.observacion || <span style={{ color: '#94a3b8' }}>—</span>}
+                            <td style={{ padding: '5px 10px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                background: row.estado === 'COMPENSADO' ? '#dcfce7' : row.estado === 'PROGRAMADO' ? '#dbeafe' : '#fef3c7',
+                                color: row.estado === 'COMPENSADO' ? '#15803d' : row.estado === 'PROGRAMADO' ? '#1d4ed8' : '#b45309'
+                              }}>
+                                {row.estado}
+                              </span>
+                            </td>
+                            <td style={{ padding: '5px 10px', fontFamily: 'monospace' }}>
+                              {row.fechaCompensada ? (
+                                <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                                  {formatDateDisplay(row.fechaCompensada)}
+                                </span>
+                              ) : row.fechaCompensadaRaw ? (
+                                <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{row.fechaCompensadaRaw}</span>
+                              ) : (
+                                <span style={{ color: '#94a3b8' }}>—</span>
+                              )}
                             </td>
                             <td style={{ padding: '5px 10px' }}>
                               <StatusBadge row={row} />

@@ -357,7 +357,7 @@ export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProp
         </div>
 
         <div className="doc-signature-box doc-signature-box-rrhh">
-          {showRrhhSignature && (
+          {showRrhhSignature ? (
             <div className="doc-signature-img-wrapper">
               <img
                 src="/firma-jefe-rrhh.png"
@@ -365,9 +365,12 @@ export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProp
                 className="doc-signature-img"
               />
             </div>
+          ) : (
+            <>
+              <div className="doc-signature-line" />
+              <div className="doc-signature-label">JEFE DE RRHH</div>
+            </>
           )}
-          <div className="doc-signature-line" />
-          <div className="doc-signature-label">JEFE DE RRHH</div>
         </div>
 
         <div className="doc-signature-box">

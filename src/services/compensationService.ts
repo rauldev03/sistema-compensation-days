@@ -2,6 +2,7 @@ import {
   Compensacion,
   CompensacionConEmpleado,
   CreateCompensacionDto,
+  EstadoCompensacion,
   ProgramarCompensacionDto,
   AnularCompensacionDto,
   ResumenCompensacionesEmpleado,
@@ -326,6 +327,7 @@ export class CompensationService {
     items: {
       identificadorTrabajador: string; // Codigo o DNI
       fechaGenerada: string;
+      estado?: EstadoCompensacion;
       fechaCompensacion?: string | null;
       observacion?: string;
     }[]
@@ -403,23 +405,15 @@ export class CompensationService {
         }
       }
 
-      // 5. Crear compensación
+      // 5. Crear compensación con estado y fecha correspondiente
+      const estadoCalculado: EstadoCompensacion = item.estado || (compDate ? 'COMPENSADO' : 'PENDIENTE');
       const created = compensationRepository.create({
         empleadoId: emp.id,
         fechaGenerada: item.fechaGenerada,
+        fechaCompensacion: compDate || null,
+        estado: estadoCalculado,
         observacion: item.observacion || ''
       });
-
-      // Si viene con fecha de compensación, programar
-      if (compDate) {
-        compensationRepository.scheduleCompensation(
-          created.id,
-          compDate,
-          item.observacion
-        );
-        created.fechaCompensacion = compDate;
-        created.estado = 'PROGRAMADO';
-      }
 
       existing.unshift(created);
       importedCount++;

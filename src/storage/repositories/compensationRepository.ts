@@ -44,12 +44,13 @@ export class CompensationRepository implements ICompensationRepository {
   public create(dto: CreateCompensacionDto): Compensacion {
     const list = db.getCompensations();
     const now = new Date().toISOString();
+    const estadoCalculado = dto.estado || (dto.fechaCompensacion ? 'COMPENSADO' : 'PENDIENTE');
     const newComp: Compensacion = {
       id: 'comp-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
       empleadoId: dto.empleadoId,
       fechaGenerada: dto.fechaGenerada,
-      fechaCompensacion: null,
-      estado: 'PENDIENTE',
+      fechaCompensacion: dto.fechaCompensacion || null,
+      estado: estadoCalculado,
       observacion: (dto.observacion || '').trim(),
       createdAt: now,
       updatedAt: now
