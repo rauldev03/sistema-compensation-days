@@ -9,6 +9,7 @@ import {
   UserCheck,
   Users,
   Calendar,
+  CalendarCheck,
   CheckSquare,
   Square,
   FileText,
@@ -52,11 +53,14 @@ function getNextDayISO(dateStr: string): string {
 export const PermissionSheetView: React.FC = () => {
   const {
     selectedEmployeeIdForCompensations,
+    selectedCompensationIdsForPermissionSheet,
+    setSelectedCompensationIdsForPermissionSheet,
     selectedDateForBulkPermissions,
     setSelectedDateForBulkPermissions,
-    refreshKey
+    refreshKey,
+    triggerRefresh
   } = useApp();
-  const { success, warning } = useToast();
+  const { success, warning, error } = useToast();
 
   // Mode: Individual (1 worker) vs Bulk (Batch by compensation date)
   const [viewMode, setViewMode] = useState<'individual' | 'bulk'>(
@@ -110,6 +114,7 @@ export const PermissionSheetView: React.FC = () => {
   const [tiempoSolicitado, setTiempoSolicitado] = useState<string>('1 DÍA (JORNADA COMPLETA)');
   const [motivo, setMotivo] = useState<MotivoType>('OTROS');
   const [motivoOtroEspecifique, setMotivoOtroEspecifique] = useState<string>('COMPENSACIÓN DE DÍA TRABAJADO');
+  const [includeRrhhSignature, setIncludeRrhhSignature] = useState<boolean>(true);
 
   // Preselect approver if available
   useEffect(() => {
@@ -135,6 +140,8 @@ export const PermissionSheetView: React.FC = () => {
   const [diaRetorno, setDiaRetorno] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
   const [selectedCompIds, setSelectedCompIds] = useState<string[]>([]);
+  const [registerCompDate, setRegisterCompDate] = useState<string>('');
+  const [isSavingComps, setIsSavingComps] = useState<boolean>(false);
 
   // Selected Employee object (Individual)
   const selectedEmployee: Empleado | undefined = useMemo(() => {
@@ -156,6 +163,53 @@ export const PermissionSheetView: React.FC = () => {
     }
   }, [selectedEmployeeIdForCompensations, activeEmployees]);
 
+  // Helper to recompute observations and dates from selected IDs
+  const applySelectedCompensations = (compsList: Compensacion[], selectedIds: string[]) => {
+    if (selectedIds.length === 0) {
+      setObservaciones('');
+      setTiempoSolicitado('1 DÍA (JORNADA COMPLETA)');
+      return;
+    }
+
+    const selectedComps = compsList.filter((c) => selectedIds.includes(c.id));
+    const count = selectedComps.length;
+    setTiempoSolicitado(`${count} DÍA${count > 1 ? 'S' : ''} (JORNADA COMPLETA)`);
+
+    const lines = selectedComps.map((c, idx) => {
+      const num = selectedComps.length > 1 ? `${idx + 1}. ` : '';
+      const compDate = c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'POR ASIGNAR';
+      return `${num}COMPENSACIÓN DE DÍA TRABAJADO (${formatDateDisplay(c.fechaGenerada)}) POR DÍA DE DESCANSO (${compDate})${c.observacion ? ' - ' + c.observacion : ''}.`;
+    });
+
+    setObservaciones(lines.join('\n'));
+
+    // Set dates if available
+    const withDates = selectedComps
+      .filter((c) => c.fechaCompensacion)
+      .map((c) => c.fechaCompensacion as string)
+      .sort();
+
+    if (withDates.length > 0) {
+      const firstDate = withDates[0];
+      const lastDate = withDates[withDates.length - 1];
+      setInicia(firstDate);
+      setFinaliza(lastDate);
+      setDiaRetorno(getNextDayISO(lastDate));
+    }
+  };
+
+  // Consume preselected compensation IDs when provided
+  useEffect(() => {
+    if (selectedCompensationIdsForPermissionSheet && selectedCompensationIdsForPermissionSheet.length > 0) {
+      setSelectedCompIds(selectedCompensationIdsForPermissionSheet);
+      if (selectedEmployeeId) {
+        const comps = compensationService.getByEmployee(selectedEmployeeId);
+        applySelectedCompensations(comps, selectedCompensationIdsForPermissionSheet);
+      }
+      setSelectedCompensationIdsForPermissionSheet(null);
+    }
+  }, [selectedCompensationIdsForPermissionSheet, selectedEmployeeId]);
+
   // When selected employee changes, update auto-filled fields
   useEffect(() => {
     if (selectedEmployee) {
@@ -164,26 +218,25 @@ export const PermissionSheetView: React.FC = () => {
       setTipoDocumento('D.N.I.');
       setLabor(selectedEmployee.cargo || selectedEmployee.area || '');
       setCondicionLaboral(selectedEmployee.tipoTrabajador === 'OBRERO' ? 'OBRERO' : 'EMPLEADO');
-      setSelectedCompIds([]);
 
       const compensations = compensationService.getByEmployee(selectedEmployee.id);
-      const scheduledOrComp = compensations.find(
-        (c) => c.estado === 'PROGRAMADO' || c.estado === 'COMPENSADO'
-      );
-      if (scheduledOrComp) {
-        setObservaciones(
-          `COMPENSACIÓN DE DÍA TRABAJADO (${formatDateDisplay(scheduledOrComp.fechaGenerada)}) POR DÍA DE DESCANSO (${formatDateDisplay(scheduledOrComp.fechaCompensacion)}). MOTIVO: ${scheduledOrComp.observacion || 'TURNO DE GUARDIA / FERIADO'}.`
-        );
-        if (scheduledOrComp.fechaCompensacion) {
-          setInicia(scheduledOrComp.fechaCompensacion);
-          setFinaliza(scheduledOrComp.fechaCompensacion);
-          setDiaRetorno(getNextDayISO(scheduledOrComp.fechaCompensacion));
+
+      // If we don't already have a selection arriving from context
+      if (!selectedCompensationIdsForPermissionSheet || selectedCompensationIdsForPermissionSheet.length === 0) {
+        // Look for scheduled or pending compensations
+        const activeComps = compensations.filter((c) => c.estado !== 'ANULADO');
+        if (activeComps.length > 0) {
+          // Preselect the first active compensation
+          const first = activeComps[0];
+          setSelectedCompIds([first.id]);
+          applySelectedCompensations(compensations, [first.id]);
+        } else {
+          setSelectedCompIds([]);
+          setObservaciones('');
+          setInicia('');
+          setFinaliza('');
+          setDiaRetorno('');
         }
-      } else {
-        setObservaciones('');
-        setInicia('');
-        setFinaliza('');
-        setDiaRetorno('');
       }
     }
   }, [selectedEmployeeId]);
@@ -198,26 +251,61 @@ export const PermissionSheetView: React.FC = () => {
       newSelected = [...selectedCompIds, comp.id];
     }
     setSelectedCompIds(newSelected);
+    applySelectedCompensations(employeeCompensations, newSelected);
+  };
 
-    if (newSelected.length === 0) {
-      setObservaciones('');
+  // Direct action: Save / Schedule compensation date for selected pending records
+  const handleSaveCompensationDates = () => {
+    if (!registerCompDate) {
+      warning('Seleccione la fecha en que se compensará el/los día(s) libre(s).');
       return;
     }
 
-    const selectedComps = employeeCompensations.filter((c) => newSelected.includes(c.id));
-    const lines = selectedComps.map((c, idx) => {
-      const num = selectedComps.length > 1 ? `${idx + 1}. ` : '';
-      const compDate = c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'POR ASIGNAR';
-      return `${num}COMPENSACIÓN DE DÍA TRABAJADO (${formatDateDisplay(c.fechaGenerada)}) POR DÍA DE DESCANSO (${compDate})${c.observacion ? ' - ' + c.observacion : ''}.`;
+    if (selectedCompIds.length === 0) {
+      warning('Debe seleccionar al menos un día trabajado para asignarle fecha de compensación.');
+      return;
+    }
+
+    setIsSavingComps(true);
+    let okCount = 0;
+    const errorsList: string[] = [];
+
+    selectedCompIds.forEach((id) => {
+      const comp = employeeCompensations.find((c) => c.id === id);
+      if (!comp) return;
+
+      if (comp.fechaGenerada === registerCompDate) {
+        errorsList.push(`El día generado (${formatDateDisplay(comp.fechaGenerada)}) no puede ser igual a la fecha de compensación.`);
+        return;
+      }
+
+      const res = compensationService.scheduleCompensation(id, {
+        fechaCompensacion: registerCompDate,
+        observacion: comp.observacion || 'Compensación de día trabajado'
+      });
+
+      if (res.success) {
+        okCount++;
+      } else if (res.error) {
+        errorsList.push(res.error);
+      }
     });
 
-    setObservaciones(lines.join('\n'));
+    setIsSavingComps(false);
 
-    const first = selectedComps[0];
-    if (first && first.fechaCompensacion) {
-      setInicia(first.fechaCompensacion);
-      setFinaliza(first.fechaCompensacion);
-      setDiaRetorno(getNextDayISO(first.fechaCompensacion));
+    if (okCount > 0) {
+      success(
+        `Se registró la fecha de compensación (${formatDateDisplay(registerCompDate)}) para ${okCount} día(s).`,
+        'Compensación Programada'
+      );
+      setInicia(registerCompDate);
+      setFinaliza(registerCompDate);
+      setDiaRetorno(getNextDayISO(registerCompDate));
+      triggerRefresh();
+    }
+
+    if (errorsList.length > 0) {
+      error(errorsList.slice(0, 2).join(' | '));
     }
   };
 
@@ -811,58 +899,211 @@ export const PermissionSheetView: React.FC = () => {
               </div>
             </div>
 
-            {/* Días compensados del trabajador (Quick selector) */}
+            {/* Días compensados del trabajador (Selector interactivo con registro de fecha) */}
             {employeeCompensations.length > 0 && (
               <div
                 style={{
                   background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid #cbd5e1',
                   borderRadius: '8px',
-                  padding: '0.5rem',
+                  padding: '0.6rem',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.35rem'
+                  gap: '0.45rem'
                 }}
               >
-                <span style={{ fontSize: '0.725rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Sparkles size={12} style={{ color: '#2563eb' }} />
-                  Compensaciones registradas de este trabajador:
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '110px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Sparkles size={13} style={{ color: '#2563eb' }} />
+                    Días disponibles del trabajador ({selectedCompIds.length}/{employeeCompensations.filter(c => c.estado !== 'ANULADO').length}):
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        const activeIds = employeeCompensations.filter(c => c.estado !== 'ANULADO').map(c => c.id);
+                        setSelectedCompIds(activeIds);
+                        applySelectedCompensations(employeeCompensations, activeIds);
+                      }}
+                      style={{ fontSize: '0.675rem', padding: '1px 5px', color: '#2563eb' }}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setSelectedCompIds([]);
+                        applySelectedCompensations(employeeCompensations, []);
+                      }}
+                      style={{ fontSize: '0.675rem', padding: '1px 5px', color: '#64748b' }}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista de compensaciones con estados */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '130px', overflowY: 'auto', paddingRight: '2px' }}>
                   {employeeCompensations.map((c) => {
                     const isChecked = selectedCompIds.includes(c.id);
+                    const isPending = c.estado === 'PENDIENTE';
+                    const isScheduled = c.estado === 'PROGRAMADO';
+                    const isCompensated = c.estado === 'COMPENSADO';
+                    const isAnnulled = c.estado === 'ANULADO';
+
                     return (
                       <label
                         key={c.id}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.35rem',
+                          justifyContent: 'space-between',
+                          gap: '0.4rem',
                           fontSize: '0.7rem',
-                          cursor: 'pointer',
+                          cursor: isAnnulled ? 'not-allowed' : 'pointer',
                           background: isChecked ? '#eff6ff' : '#ffffff',
-                          padding: '3px 6px',
-                          borderRadius: '4px',
-                          border: '1px solid',
-                          borderColor: isChecked ? '#bfdbfe' : '#e2e8f0'
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
+                          opacity: isAnnulled ? 0.6 : 1,
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleCompensation(c)}
-                          style={{ width: 12, height: 12 }}
-                        />
-                        <span style={{ fontWeight: 600 }}>
-                          Laborado: {formatDateDisplay(c.fechaGenerada)} → Compensa:{' '}
-                          {c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'Pendiente'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isAnnulled}
+                            onChange={() => handleToggleCompensation(c)}
+                            style={{ width: 13, height: 13, cursor: isAnnulled ? 'not-allowed' : 'pointer' }}
+                          />
+                          <div>
+                            <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                              Trabajado: {formatDateDisplay(c.fechaGenerada)}
+                            </span>
+                            <span style={{ color: '#64748b', marginLeft: '4px' }}>
+                              → Compensa: <strong>{c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'Sin fecha (Pendiente)'}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: '0.625rem',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: isPending
+                              ? '#fef3c7'
+                              : isScheduled
+                              ? '#dbeafe'
+                              : isCompensated
+                              ? '#dcfce7'
+                              : '#f1f5f9',
+                            color: isPending
+                              ? '#b45309'
+                              : isScheduled
+                              ? '#1d4ed8'
+                              : isCompensated
+                              ? '#15803d'
+                              : '#64748b'
+                          }}
+                        >
+                          {c.estado}
                         </span>
                       </label>
                     );
                   })}
                 </div>
+
+                {/* Sub-panel interactivo para registrar / programar fecha de compensación */}
+                {selectedCompIds.length > 0 && (
+                  <div
+                    style={{
+                      background: '#eff6ff',
+                      border: '1px dashed #93c5fd',
+                      borderRadius: '6px',
+                      padding: '0.5rem',
+                      marginTop: '0.2rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.35rem'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <CalendarCheck size={12} />
+                      Registrar qué día se compensa ({selectedCompIds.length} selec.):
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={registerCompDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRegisterCompDate(val);
+                          if (val) {
+                            setInicia(val);
+                            setFinaliza(val);
+                            setDiaRetorno(getNextDayISO(val));
+                          }
+                        }}
+                        style={{ fontSize: '0.725rem', padding: '0.2rem 0.4rem', flex: 1 }}
+                      />
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleSaveCompensationDates}
+                        disabled={!registerCompDate || isSavingComps}
+                        style={{ fontSize: '0.7rem', padding: '0.2rem 0.55rem', whiteSpace: 'nowrap' }}
+                      >
+                        {isSavingComps ? 'Guardando...' : '💾 Guardar Fecha'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* 7. Firma Digital de RRHH */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.45rem 0.65rem',
+                background: includeRrhhSignature ? '#f0fdf4' : '#f8fafc',
+                border: `1px solid ${includeRrhhSignature ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <img
+                  src="/firma-jefe-rrhh.png"
+                  alt="Firma RRHH"
+                  style={{ height: '22px', objectFit: 'contain', opacity: includeRrhhSignature ? 1 : 0.4 }}
+                />
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: includeRrhhSignature ? '#166534' : '#475569' }}>
+                    Firma Digital Jefe de RRHH
+                  </div>
+                  <div style={{ fontSize: '0.675rem', color: '#64748b' }}>
+                    {includeRrhhSignature ? 'Incluida en el formato impreso' : 'Desactivada (recuadro vacío)'}
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={includeRrhhSignature}
+                onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
+                style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+              />
+            </div>
 
             {/* Observaciones */}
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -882,7 +1123,11 @@ export const PermissionSheetView: React.FC = () => {
 
           {/* VISTA PREVIA DEL DOCUMENTO OFICIAL INDIVIDUAL */}
           <div className="permission-preview-wrapper">
-            <OfficialPermissionSheetDoc data={individualSheetData} isPrintable />
+            <OfficialPermissionSheetDoc
+              data={individualSheetData}
+              isPrintable
+              showRrhhSignature={includeRrhhSignature}
+            />
           </div>
         </div>
       )}
@@ -1303,6 +1548,43 @@ export const PermissionSheetView: React.FC = () => {
                   style={{ fontSize: '0.725rem', padding: '0.2rem 0.35rem' }}
                 />
               </div>
+
+              {/* Toggle de Firma Digital de RRHH en Lote */}
+              <div
+                style={{
+                  gridColumn: 'span 2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.35rem 0.5rem',
+                  background: includeRrhhSignature ? '#f0fdf4' : '#f8fafc',
+                  border: `1px solid ${includeRrhhSignature ? '#86efac' : '#e2e8f0'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  marginTop: '0.25rem'
+                }}
+                onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <img
+                    src="/firma-jefe-rrhh.png"
+                    alt="Firma RRHH"
+                    style={{ height: '18px', objectFit: 'contain', opacity: includeRrhhSignature ? 1 : 0.4 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: includeRrhhSignature ? '#166534' : '#475569' }}>
+                      Firma Jefe de RRHH
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={includeRrhhSignature}
+                  onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
+                  style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                />
+              </div>
             </div>
           </div>
 
@@ -1325,99 +1607,95 @@ export const PermissionSheetView: React.FC = () => {
                   Ningún trabajador seleccionado para el PDF Masivo
                 </h4>
                 <p style={{ fontSize: '0.825rem', margin: '0.35rem 0 0 0' }}>
-                  Selecciona una fecha con compensaciones programadas y marca al menos un trabajador en la lista de la izquierda.
+                  Selecciona una fecha con compensaciones o marca los trabajadores en el panel izquierdo para generar sus hojas de permiso.
                 </p>
               </div>
             ) : (
               <>
-                {/* BARRA DE NAVEGACIÓN DE VISTA PREVIA EN PANTALLA */}
+                {/* BARRA DE NAVEGACIÓN DE PÁGINAS Y MODO DE VISTA PREVIA */}
                 <div
                   className="no-print"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    width: '100%',
-                    maxWidth: 800,
-                    background: '#ffffff',
-                    padding: '0.5rem 0.85rem',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                     flexWrap: 'wrap',
-                    gap: '0.5rem'
+                    gap: '0.5rem',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '0.5rem 0.85rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    width: '100%',
+                    maxWidth: 800
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>
-                      Vista Previa:
-                    </span>
-                    <div style={{ display: 'flex', gap: '0.25rem', background: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
                       <button
                         type="button"
                         onClick={() => setPreviewMode('paginated')}
                         style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.725rem',
-                          fontWeight: previewMode === 'paginated' ? 700 : 500,
                           border: 'none',
-                          cursor: 'pointer',
                           background: previewMode === 'paginated' ? '#ffffff' : 'transparent',
-                          color: previewMode === 'paginated' ? '#2563eb' : '#475569',
-                          boxShadow: previewMode === 'paginated' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+                          color: previewMode === 'paginated' ? '#1d4ed8' : '#64748b',
+                          fontWeight: previewMode === 'paginated' ? 700 : 500,
+                          fontSize: '0.75rem',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          boxShadow: previewMode === 'paginated' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
                         }}
                       >
-                        Paginada (1 por 1)
+                        Página por Página
                       </button>
                       <button
                         type="button"
                         onClick={() => setPreviewMode('all')}
                         style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.725rem',
-                          fontWeight: previewMode === 'all' ? 700 : 500,
                           border: 'none',
-                          cursor: 'pointer',
                           background: previewMode === 'all' ? '#ffffff' : 'transparent',
-                          color: previewMode === 'all' ? '#2563eb' : '#475569',
-                          boxShadow: previewMode === 'all' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+                          color: previewMode === 'all' ? '#1d4ed8' : '#64748b',
+                          fontWeight: previewMode === 'all' ? 700 : 500,
+                          fontSize: '0.75rem',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          boxShadow: previewMode === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
                         }}
                       >
-                        Ver todas ({bulkGeneratedSheetsData.length})
+                        Ver Todas ({bulkGeneratedSheetsData.length})
                       </button>
                     </div>
+
+                    {previewMode === 'paginated' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setBulkPreviewIndex((i) => Math.max(0, i - 1))}
+                          disabled={bulkPreviewIndex === 0}
+                          style={{ padding: '2px 6px' }}
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '70px', textAlign: 'center' }}>
+                          {bulkPreviewIndex + 1} / {bulkGeneratedSheetsData.length}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() =>
+                            setBulkPreviewIndex((i) => Math.min(bulkGeneratedSheetsData.length - 1, i + 1))
+                          }
+                          disabled={bulkPreviewIndex >= bulkGeneratedSheetsData.length - 1}
+                          style={{ padding: '2px 6px' }}
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {previewMode === 'paginated' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <button
-                        type="button"
-                        disabled={bulkPreviewIndex === 0}
-                        onClick={() => setBulkPreviewIndex((p) => Math.max(0, p - 1))}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '2px 6px', height: '26px' }}
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
-                        Hoja {bulkPreviewIndex + 1} de {bulkGeneratedSheetsData.length} (
-                        {bulkGeneratedSheetsData[bulkPreviewIndex]?.apellidosNombres})
-                      </span>
-
-                      <button
-                        type="button"
-                        disabled={bulkPreviewIndex >= bulkGeneratedSheetsData.length - 1}
-                        onClick={() => setBulkPreviewIndex((p) => Math.min(bulkGeneratedSheetsData.length - 1, p + 1))}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '2px 6px', height: '26px' }}
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  )}
 
                   <Button
                     variant="primary"
@@ -1440,6 +1718,7 @@ export const PermissionSheetView: React.FC = () => {
                       </div>
                       <OfficialPermissionSheetDoc
                         data={bulkGeneratedSheetsData[bulkPreviewIndex]}
+                        showRrhhSignature={includeRrhhSignature}
                       />
                     </div>
                   ) : (
@@ -1448,7 +1727,10 @@ export const PermissionSheetView: React.FC = () => {
                         <div className="bulk-sheet-page-indicator">
                           Página {idx + 1} de {bulkGeneratedSheetsData.length} • {sheetData.apellidosNombres}
                         </div>
-                        <OfficialPermissionSheetDoc data={sheetData} />
+                        <OfficialPermissionSheetDoc
+                          data={sheetData}
+                          showRrhhSignature={includeRrhhSignature}
+                        />
                       </div>
                     ))
                   )}
@@ -1457,7 +1739,11 @@ export const PermissionSheetView: React.FC = () => {
                   <div className="bulk-print-only-container" style={{ width: '100%' }}>
                     {bulkGeneratedSheetsData.map((sheetData, idx) => (
                       <div key={`print-${sheetData.id || idx}`} className="bulk-sheet-page-wrapper">
-                        <OfficialPermissionSheetDoc data={sheetData} isPrintable />
+                        <OfficialPermissionSheetDoc
+                          data={sheetData}
+                          isPrintable
+                          showRrhhSignature={includeRrhhSignature}
+                        />
                       </div>
                     ))}
                   </div>

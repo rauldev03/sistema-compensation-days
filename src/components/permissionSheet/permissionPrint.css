@@ -226,12 +226,42 @@
   align-items: center;
   padding-bottom: 5px;
   background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.doc-signature-box-rrhh {
+  position: relative;
+}
+
+.doc-signature-img-wrapper {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.doc-signature-img {
+  max-height: 50px;
+  max-width: 90%;
+  object-fit: contain;
+  filter: contrast(1.15) brightness(0.95);
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .doc-signature-line {
   width: 85%;
   border-top: 1px dotted #000000;
   margin-bottom: 4px;
+  position: relative;
+  z-index: 2;
 }
 
 .doc-signature-label {
@@ -239,6 +269,8 @@
   font-weight: 800;
   text-align: center;
   color: #000000;
+  position: relative;
+  z-index: 2;
 }
 
 /* Multi-sheet preview container */

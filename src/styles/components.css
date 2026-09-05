@@ -1179,3 +1179,74 @@
   font-weight: 800;
 }
 
+/* ============================================================
+   HORIZONTAL NAVIGATION TABS (Segmented View Bar)
+   ============================================================ */
+.horizontal-nav-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.horizontal-nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.8rem;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  color: #475569;
+  transition: all var(--transition-fast);
+  user-select: none;
+  text-decoration: none;
+}
+
+.horizontal-nav-tab-btn:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.horizontal-nav-tab-btn.active {
+  background: #ffffff;
+  color: #1d4ed8;
+  font-weight: 700;
+  border-color: #93c5fd;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.14), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.horizontal-nav-tab-btn .tab-icon {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+
+.horizontal-nav-tab-btn.active .tab-icon {
+  color: #2563eb;
+}
+
+.horizontal-nav-tab-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #64748b;
+  transition: all var(--transition-fast);
+}
+
+.horizontal-nav-tab-btn.active .horizontal-nav-tab-badge {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+

@@ -10,6 +10,7 @@
     "test": "npx -y tsx test_suite.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.115.0",
     "dexie": "^4.4.5",
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",

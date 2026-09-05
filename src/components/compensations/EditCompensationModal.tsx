@@ -61,8 +61,13 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       return;
     }
 
-    if (estado === 'PROGRAMADO' && !fechaCompensacion) {
+    if (estado === 'PROGRAMADO' && !fechaCompensacion.trim()) {
       setErrors({ fechaCompensacion: 'Un registro en estado PROGRAMADO debe tener fecha de compensación.' });
+      return;
+    }
+
+    if (estado === 'COMPENSADO' && !fechaCompensacion.trim()) {
+      setErrors({ fechaCompensacion: 'Un registro en estado COMPENSADO debe tener fecha de compensación.' });
       return;
     }
 
@@ -71,12 +76,36 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       return;
     }
 
+    const trimCompDate = fechaCompensacion.trim();
+
+    // Regla A: fechaGenerada != fechaCompensacion
+    if (estado !== 'ANULADO' && trimCompDate && fechaGenerada === trimCompDate) {
+      setErrors({
+        fechaCompensacion: `El día generado trabajado (${fechaGenerada}) no puede ser igual a la fecha de compensación.`
+      });
+      return;
+    }
+
+    // Regla B: Unicidad de fecha de compensación por trabajador
+    if (estado !== 'ANULADO' && trimCompDate) {
+      const employeeComps = compensationService.getByEmployee(compensation.empleadoId);
+      const duplicate = employeeComps.find(
+        (c) => c.id !== compensation.id && c.fechaCompensacion === trimCompDate && c.estado !== 'ANULADO'
+      );
+      if (duplicate) {
+        setErrors({
+          fechaCompensacion: `El trabajador ya tiene una compensación asignada para el ${trimCompDate} (${duplicate.estado}). No puede haber 2 fechas de compensación iguales.`
+        });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrors({});
 
     const res = compensationService.update(compensation.id, {
       fechaGenerada,
-      fechaCompensacion: fechaCompensacion.trim() || null,
+      fechaCompensacion: trimCompDate || null,
       estado,
       observacion: observacion.trim(),
       motivoAnulacion: estado === 'ANULADO' ? motivoAnulacion.trim() : null
@@ -89,6 +118,9 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       onSuccess();
       onClose();
     } else {
+      if (res.errors) {
+        setErrors(res.errors);
+      }
       error(res.error || 'Error al guardar los cambios de la compensación.');
     }
   };

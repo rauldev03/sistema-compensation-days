@@ -141,6 +141,7 @@ export class CompensationRepository implements ICompensationRepository {
     const filtered = list.filter((c) => c.id !== id);
     if (filtered.length === list.length) return false;
     db.saveCompensations(filtered);
+    db.deleteCompensationRemote(id);
     return true;
   }
 

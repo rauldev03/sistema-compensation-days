@@ -3,8 +3,10 @@ import { Empleado, Feriado, Compensacion, AprobadorPermiso } from '../types';
 import { INITIAL_HOLIDAYS_2026, INITIAL_EMPLOYEES, INITIAL_COMPENSATIONS, INITIAL_APPROVERS } from './seedData';
 import { dexieDb } from './dexieDb';
 import { parseDateString } from '../utils/dateUtils';
+import { SupabaseService } from './supabaseService';
+import { isSupabaseConfigured } from './supabaseClient';
 
-const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_64_v5';
+const CLEAN_WIPE_VERSION = 'v_adpmodul_seed_7days_cubas_v6';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'mf_empleados_v2',
@@ -25,6 +27,8 @@ class DatabaseDriver {
   private compensationsCache: Compensacion[] = [];
   private approversCache: AprobadorPermiso[] = [];
   private isLoaded: boolean = false;
+  private isSyncingCloud: boolean = false;
+  private supabaseUnsubscribe: (() => void) | null = null;
 
   constructor() {
     this.initDatabase();
@@ -32,6 +36,14 @@ class DatabaseDriver {
 
   public isReady(): boolean {
     return this.isLoaded;
+  }
+
+  public isCloudConnected(): boolean {
+    return isSupabaseConfigured();
+  }
+
+  public isCloudSyncing(): boolean {
+    return this.isSyncingCloud;
   }
 
   public subscribe(listener: ChangeListener): () => void {
@@ -92,7 +104,7 @@ class DatabaseDriver {
           localStorage.setItem(STORAGE_KEYS.WIPED_FLAG, CLEAN_WIPE_VERSION);
         } catch (_) {}
 
-        // Populate with the 5 employees and 50 compensations
+        // Populate with initial data
         this.employeesCache = [...INITIAL_EMPLOYEES];
         this.holidaysCache = [...INITIAL_HOLIDAYS_2026];
         this.compensationsCache = [...INITIAL_COMPENSATIONS];
@@ -101,6 +113,9 @@ class DatabaseDriver {
         await this.persistAllToDexie(INITIAL_EMPLOYEES, INITIAL_HOLIDAYS_2026, INITIAL_COMPENSATIONS, INITIAL_APPROVERS);
         this.isLoaded = true;
         this.notify();
+
+        // Intento de sincronización con Supabase si está activo
+        this.checkAndInitCloud();
         return;
       }
 
@@ -148,6 +163,9 @@ class DatabaseDriver {
 
       this.isLoaded = true;
       this.notify();
+
+      // Intento de sincronización con Supabase si está activo
+      this.checkAndInitCloud();
     } catch (e) {
       console.warn('Dexie IndexedDB initialization error, fallback to memory cache:', e);
       // Fallback to seed data in memory
@@ -159,8 +177,115 @@ class DatabaseDriver {
       }
       this.isLoaded = true;
       this.notify();
+
+      this.checkAndInitCloud();
     }
   }
+
+  // --- INTEGRACIÓN SUPABASE / CLOUD ---
+
+  private async checkAndInitCloud(): Promise<void> {
+    if (!SupabaseService.isAvailable()) return;
+
+    try {
+      await this.syncWithSupabase();
+      this.setupSupabaseRealtime();
+    } catch (err) {
+      console.warn('Advertencia al sincronizar con Supabase durante inicio:', err);
+    }
+  }
+
+  public async syncWithSupabase(): Promise<void> {
+    if (!SupabaseService.isAvailable()) return;
+
+    this.isSyncingCloud = true;
+    try {
+      const [remEmps, remHols, remComps, remApps] = await Promise.all([
+        SupabaseService.fetchEmployees(),
+        SupabaseService.fetchHolidays(),
+        SupabaseService.fetchCompensations(),
+        SupabaseService.fetchApprovers()
+      ]);
+
+      // Si Supabase tiene datos, los adoptamos como fuente de verdad
+      const hasCloudData = (remEmps && remEmps.length > 0) || (remComps && remComps.length > 0);
+
+      if (hasCloudData) {
+        if (remEmps) this.employeesCache = this.sanitizeEmployees(remEmps);
+        if (remHols && remHols.length > 0) this.holidaysCache = this.sanitizeHolidays(remHols);
+        if (remComps) this.compensationsCache = this.sanitizeCompensations(remComps);
+        if (remApps && remApps.length > 0) this.approversCache = remApps;
+
+        await this.persistAllToDexie(this.employeesCache, this.holidaysCache, this.compensationsCache, this.approversCache);
+        this.notify();
+      } else if (remEmps !== null && remEmps.length === 0 && this.employeesCache.length > 0) {
+        // Supabase está conectado pero la tabla está vacía: poblamos la nube con los datos locales
+        console.info('Supabase está conectado pero vacío. Sembrando datos locales a la nube...');
+        await SupabaseService.uploadAllLocalDataToSupabase(
+          this.employeesCache,
+          this.holidaysCache,
+          this.compensationsCache,
+          this.approversCache
+        );
+      }
+    } catch (err) {
+      console.error('Error durante la sincronización con Supabase:', err);
+    } finally {
+      this.isSyncingCloud = false;
+      this.notify();
+    }
+  }
+
+  private setupSupabaseRealtime(): void {
+    if (this.supabaseUnsubscribe) {
+      this.supabaseUnsubscribe();
+      this.supabaseUnsubscribe = null;
+    }
+
+    const unsub = SupabaseService.subscribeToAllChanges(async () => {
+      console.info('Cambio remoto detectado en Supabase, sincronizando estado local...');
+      await this.syncWithSupabase();
+    });
+
+    if (unsub) {
+      this.supabaseUnsubscribe = unsub;
+    }
+  }
+
+  public async pushAllToSupabase(): Promise<{ success: boolean; message?: string }> {
+    return SupabaseService.uploadAllLocalDataToSupabase(
+      this.employeesCache,
+      this.holidaysCache,
+      this.compensationsCache,
+      this.approversCache
+    );
+  }
+
+  public deleteEmployeeRemote(id: string): void {
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.deleteEmployee(id).catch((err) => console.error('Error eliminando empleado en Supabase:', err));
+    }
+  }
+
+  public deleteHolidayRemote(id: string): void {
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.deleteHoliday(id).catch((err) => console.error('Error eliminando feriado en Supabase:', err));
+    }
+  }
+
+  public deleteCompensationRemote(id: string): void {
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.deleteCompensation(id).catch((err) => console.error('Error eliminando compensación en Supabase:', err));
+    }
+  }
+
+  public deleteApproverRemote(id: string): void {
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.deleteApprover(id).catch((err) => console.error('Error eliminando aprobador en Supabase:', err));
+    }
+  }
+
+  // --- PERSISTENCIA LOCAL ---
 
   private async persistAllToDexie(
     emps: Empleado[],
@@ -199,6 +324,10 @@ class DatabaseDriver {
         INITIAL_COMPENSATIONS
       );
       this.notify();
+
+      if (SupabaseService.isAvailable()) {
+        this.pushAllToSupabase().catch(() => {});
+      }
     } catch (e) {
       console.error('Error loading sample data:', e);
       this.notify();
@@ -226,6 +355,10 @@ class DatabaseDriver {
       } catch (_) {}
 
       this.notify();
+
+      if (SupabaseService.isAvailable()) {
+        this.pushAllToSupabase().catch(() => {});
+      }
     } catch (e) {
       console.error('Error resetting database to defaults:', e);
       this.notify();
@@ -276,6 +409,12 @@ class DatabaseDriver {
     dexieDb.empleados.clear()
       .then(() => dexieDb.empleados.bulkPut(employees))
       .catch((err) => console.error('Error saving employees to Dexie:', err));
+
+    // Async persist to Supabase
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.upsertEmployees(employees)
+        .catch((err) => console.error('Error saving employees to Supabase:', err));
+    }
   }
 
   // --- Feriados ---
@@ -291,6 +430,12 @@ class DatabaseDriver {
     dexieDb.feriados.clear()
       .then(() => dexieDb.feriados.bulkPut(holidays))
       .catch((err) => console.error('Error saving holidays to Dexie:', err));
+
+    // Async persist to Supabase
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.upsertHolidays(holidays)
+        .catch((err) => console.error('Error saving holidays to Supabase:', err));
+    }
   }
 
   // --- Compensaciones ---
@@ -306,6 +451,12 @@ class DatabaseDriver {
     dexieDb.compensaciones.clear()
       .then(() => dexieDb.compensaciones.bulkPut(compensations))
       .catch((err) => console.error('Error saving compensations to Dexie:', err));
+
+    // Async persist to Supabase
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.upsertCompensations(compensations)
+        .catch((err) => console.error('Error saving compensations to Supabase:', err));
+    }
   }
 
   // --- Aprobadores de Permisos ---
@@ -321,6 +472,12 @@ class DatabaseDriver {
     dexieDb.aprobadores.clear()
       .then(() => dexieDb.aprobadores.bulkPut(approvers))
       .catch((err) => console.error('Error saving approvers to Dexie:', err));
+
+    // Async persist to Supabase
+    if (SupabaseService.isAvailable()) {
+      SupabaseService.upsertApprovers(approvers)
+        .catch((err) => console.error('Error saving approvers to Supabase:', err));
+    }
   }
 
   // --- Respaldo y Restauración Masiva ---
@@ -328,7 +485,7 @@ class DatabaseDriver {
     return JSON.stringify(
       {
         version: '2.0',
-        engine: 'Dexie (IndexedDB)',
+        engine: 'Dexie (IndexedDB) + Supabase Cloud',
         exportedAt: new Date().toISOString(),
         employees: this.getEmployees(),
         holidays: this.getHolidays(),
@@ -360,6 +517,10 @@ class DatabaseDriver {
       this.persistAllToDexie(data.employees, data.holidays, data.compensations)
         .then(() => this.notify())
         .catch((err) => console.error('Error importing backup to Dexie:', err));
+
+      if (SupabaseService.isAvailable()) {
+        this.pushAllToSupabase().catch(() => {});
+      }
 
       this.notify();
       return { success: true };

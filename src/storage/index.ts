@@ -5,3 +5,5 @@ export * from './repositories/employeeRepository';
 export * from './repositories/holidayRepository';
 export * from './repositories/compensationRepository';
 export * from './repositories/approverRepository';
+export * from './supabaseClient';
+export * from './supabaseService';

@@ -68,6 +68,7 @@ export class ApproverRepository implements IApproverRepository {
     const filtered = list.filter((a) => a.id !== id);
     if (filtered.length === list.length) return false;
     db.saveApprovers(filtered);
+    db.deleteApproverRemote(id);
     return true;
   }
 }

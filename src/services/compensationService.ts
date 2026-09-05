@@ -162,7 +162,8 @@ export class CompensationService {
       return { success: false, error: 'Registro de compensación no encontrado.' };
     }
 
-    const validation = CompensationValidator.validateSchedule(dto, comp);
+    const employeeComps = compensationRepository.getByEmployeeId(comp.empleadoId);
+    const validation = CompensationValidator.validateSchedule(dto, comp, employeeComps);
     if (!validation.isValid) {
       return {
         success: false,
@@ -252,18 +253,14 @@ export class CompensationService {
       return { success: false, error: 'Registro de compensación no encontrado.' };
     }
 
-    // Si se modifica la fecha generada, validar que no duplique con otro registro activo del mismo empleado
-    if (dto.fechaGenerada && dto.fechaGenerada !== comp.fechaGenerada) {
-      const all = compensationRepository.getByEmployeeId(comp.empleadoId);
-      const duplicate = all.find(
-        (c) => c.id !== id && c.fechaGenerada === dto.fechaGenerada && c.estado !== 'ANULADO'
-      );
-      if (duplicate) {
-        return {
-          success: false,
-          error: `El trabajador ya tiene un registro activo para la fecha ${dto.fechaGenerada}.`
-        };
-      }
+    const employeeComps = compensationRepository.getByEmployeeId(comp.empleadoId);
+    const validation = CompensationValidator.validateUpdate(dto, comp, employeeComps);
+    if (!validation.isValid) {
+      return {
+        success: false,
+        error: Object.values(validation.errors)[0],
+        errors: validation.errors
+      };
     }
 
     const updated = compensationRepository.update(id, {
@@ -365,7 +362,7 @@ export class CompensationService {
         continue;
       }
 
-      // 3. Regla 1:1 duplicidad
+      // 3. Regla 1:1 duplicidad de fecha generada
       const duplicate = existing.find(
         (c) =>
           c.empleadoId === emp.id &&
@@ -375,12 +372,38 @@ export class CompensationService {
 
       if (duplicate) {
         errors.push(
-          `Fila #${rowNum}: ${emp.apellidosNombres} ya tiene registrado el día ${item.fechaGenerada} (${duplicate.estado}).`
+          `Fila #${rowNum}: ${emp.apellidosNombres} ya tiene registrado el día generado ${item.fechaGenerada} (${duplicate.estado}).`
         );
         continue;
       }
 
-      // 4. Crear compensación
+      // 4. Validar fecha de compensación si se proporciona
+      const compDate = item.fechaCompensacion ? item.fechaCompensacion.trim() : '';
+      if (compDate) {
+        // Regla A: El día generado no puede ser igual a la fecha de compensación
+        if (compDate === item.fechaGenerada) {
+          errors.push(
+            `Fila #${rowNum}: ${emp.apellidosNombres} tiene la fecha de compensación (${compDate}) igual al día trabajado.`
+          );
+          continue;
+        }
+
+        // Regla B: No puede haber 2 fechas de compensación iguales para el mismo trabajador
+        const duplicateCompDate = existing.find(
+          (c) =>
+            c.empleadoId === emp.id &&
+            c.fechaCompensacion === compDate &&
+            c.estado !== 'ANULADO'
+        );
+        if (duplicateCompDate) {
+          errors.push(
+            `Fila #${rowNum}: ${emp.apellidosNombres} ya tiene una compensación asignada para el ${compDate}.`
+          );
+          continue;
+        }
+      }
+
+      // 5. Crear compensación
       const created = compensationRepository.create({
         empleadoId: emp.id,
         fechaGenerada: item.fechaGenerada,
@@ -388,12 +411,14 @@ export class CompensationService {
       });
 
       // Si viene con fecha de compensación, programar
-      if (item.fechaCompensacion && item.fechaCompensacion.trim() !== '') {
+      if (compDate) {
         compensationRepository.scheduleCompensation(
           created.id,
-          item.fechaCompensacion.trim(),
+          compDate,
           item.observacion
         );
+        created.fechaCompensacion = compDate;
+        created.estado = 'PROGRAMADO';
       }
 
       existing.unshift(created);
@@ -409,3 +434,4 @@ export class CompensationService {
 }
 
 export const compensationService = new CompensationService();
+

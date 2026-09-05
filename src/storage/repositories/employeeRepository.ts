@@ -89,6 +89,7 @@ export class EmployeeRepository implements IEmployeeRepository {
     const filtered = list.filter((e) => e.id !== id);
     if (filtered.length === list.length) return false;
     db.saveEmployees(filtered);
+    db.deleteEmployeeRemote(id);
     return true;
   }
 }

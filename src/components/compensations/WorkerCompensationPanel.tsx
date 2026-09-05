@@ -110,11 +110,58 @@ export const WorkerCompensationPanel: React.FC = () => {
     return compensationService.getEmployeeSummary(selectedEmployee.id);
   }, [selectedEmployee, refreshKey]);
 
+  // Selection of compensation days for permission sheet / bulk actions
+  const [selectedCompIds, setSelectedCompIds] = useState<Set<string>>(new Set());
+
+  // Clear selection when employee changes
+  useEffect(() => {
+    setSelectedCompIds(new Set());
+  }, [selectedEmployee?.id]);
+
+  // Selectable items (excluding ANULADO)
+  const availableCompensations = useMemo(() => {
+    return employeeCompensations.filter((c) => c.estado !== 'ANULADO');
+  }, [employeeCompensations]);
+
+  const allAvailableSelected = useMemo(() => {
+    return (
+      availableCompensations.length > 0 &&
+      availableCompensations.every((c) => selectedCompIds.has(c.id))
+    );
+  }, [availableCompensations, selectedCompIds]);
+
+  const handleToggleSelectAll = () => {
+    if (allAvailableSelected) {
+      setSelectedCompIds(new Set());
+    } else {
+      setSelectedCompIds(new Set(availableCompensations.map((c) => c.id)));
+    }
+  };
+
+  const handleToggleSelectOne = (id: string) => {
+    setSelectedCompIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleOpenPermissionSheet = () => {
+    if (!selectedEmployee) return;
+    const ids = Array.from(selectedCompIds);
+    openPermissionSheetForEmployee(selectedEmployee.id, ids);
+  };
+
   const formatDate = (dateStr?: string | null) => formatDateDisplay(dateStr);
 
   const handleSelectEmployee = (emp: Empleado) => {
     setSelectedEmployee(emp);
     setSelectedEmployeeIdForCompensations(emp.id);
+    setSelectedCompIds(new Set());
     setSearchTerm('');
     success(`Trabajador seleccionado: ${emp.apellidosNombres}`, 'Panel Actualizado');
   };
@@ -360,13 +407,17 @@ export const WorkerCompensationPanel: React.FC = () => {
 
               <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Button
-                  variant="secondary"
+                  variant={selectedCompIds.size > 0 ? "primary" : "secondary"}
                   size="sm"
-                  onClick={() => openPermissionSheetForEmployee(selectedEmployee.id)}
-                  icon={<Printer size={14} style={{ color: '#2563eb' }} />}
-                  title="Generar e imprimir Hoja de Permiso Oficial Chavín para este trabajador"
+                  onClick={handleOpenPermissionSheet}
+                  icon={<Printer size={14} style={{ color: selectedCompIds.size > 0 ? '#ffffff' : '#2563eb' }} />}
+                  title="Generar e imprimir Hoja de Permiso Oficial Chavín para este trabajador con los días seleccionados"
+                  style={selectedCompIds.size > 0 ? {
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)',
+                    boxShadow: '0 2px 8px rgba(29, 78, 216, 0.4)'
+                  } : undefined}
                 >
-                  Hoja de Permiso
+                  Hoja de Permiso {selectedCompIds.size > 0 ? `(${selectedCompIds.size} selec.)` : ''}
                 </Button>
 
                 <Button
@@ -432,6 +483,68 @@ export const WorkerCompensationPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Banner de Selección Múltiple */}
+          {selectedCompIds.size > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.65rem 1rem',
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                border: '1px solid #93c5fd',
+                borderRadius: '10px',
+                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.12)',
+                flexWrap: 'wrap',
+                gap: '0.6rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span
+                  style={{
+                    background: '#1d4ed8',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.78rem',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
+                >
+                  ✓ {selectedCompIds.size} día(s) seleccionado(s)
+                </span>
+                <span style={{ fontSize: '0.825rem', color: '#1e3a8a', fontWeight: 500 }}>
+                  Genera la Hoja de Permiso únicamente con los días marcados.
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleOpenPermissionSheet}
+                  icon={<Printer size={14} />}
+                  style={{
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                  }}
+                >
+                  Generar Hoja de Permiso ({selectedCompIds.size})
+                </Button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setSelectedCompIds(new Set())}
+                  style={{ fontSize: '0.75rem', color: '#64748b' }}
+                >
+                  Limpiar Selección
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 3. TABLA DE DÍAS DE COMPENSACIÓN DEL TRABAJADOR */}
           <div className="table-wrapper">
             <div className="card-header" style={{ background: '#ffffff' }}>
@@ -460,9 +573,20 @@ export const WorkerCompensationPanel: React.FC = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '140px' }}>Día Generado</th>
-                    <th style={{ width: '125px' }}>Estado</th>
-                    <th style={{ width: '160px' }}>Fecha Compensación</th>
+                    <th style={{ width: '42px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todos los días disponibles"
+                        checked={allAvailableSelected}
+                        onChange={handleToggleSelectAll}
+                        disabled={availableCompensations.length === 0}
+                        style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                        title="Seleccionar / Deseleccionar todos los días disponibles"
+                      />
+                    </th>
+                    <th style={{ width: '130px' }}>Día Generado</th>
+                    <th style={{ width: '120px' }}>Estado</th>
+                    <th style={{ width: '150px' }}>Fecha Compensación</th>
                     <th>Observación / Motivo</th>
                     <th style={{ textAlign: 'right', minWidth: '220px' }}>Acciones</th>
                   </tr>
@@ -470,7 +594,7 @@ export const WorkerCompensationPanel: React.FC = () => {
                 <tbody>
                   {employeeCompensations.length === 0 ? (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <div className="empty-state">
                           <Clock className="empty-state-icon" style={{ color: '#94a3b8' }} />
                           <div className="empty-state-title">
@@ -483,28 +607,50 @@ export const WorkerCompensationPanel: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    employeeCompensations.map((comp) => (
-                      <tr
-                        key={comp.id}
-                        style={
-                          comp.estado === 'PENDIENTE'
-                            ? { backgroundColor: '#fffdfa' }
-                            : comp.estado === 'PROGRAMADO'
-                            ? { backgroundColor: '#f9fbff' }
-                            : comp.estado === 'ANULADO'
-                            ? { opacity: 0.75 }
-                            : undefined
-                        }
-                      >
-                        {/* Día Generado */}
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <Calendar size={14} style={{ color: '#2563eb' }} />
-                            <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
-                              {formatDate(comp.fechaGenerada)}
-                            </strong>
-                          </div>
-                        </td>
+                    employeeCompensations.map((comp) => {
+                      const isChecked = selectedCompIds.has(comp.id);
+                      const isAnnulled = comp.estado === 'ANULADO';
+
+                      return (
+                        <tr
+                          key={comp.id}
+                          style={
+                            isChecked
+                              ? { backgroundColor: '#eff6ff' }
+                              : comp.estado === 'PENDIENTE'
+                              ? { backgroundColor: '#fffdfa' }
+                              : comp.estado === 'PROGRAMADO'
+                              ? { backgroundColor: '#f9fbff' }
+                              : isAnnulled
+                              ? { opacity: 0.75 }
+                              : undefined
+                          }
+                        >
+                          {/* Checkbox de Selección */}
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleToggleSelectOne(comp.id)}
+                              disabled={isAnnulled}
+                              style={{
+                                cursor: isAnnulled ? 'not-allowed' : 'pointer',
+                                width: '15px',
+                                height: '15px'
+                              }}
+                              title={isAnnulled ? 'Registro anulado' : 'Seleccionar para Hoja de Permiso'}
+                            />
+                          </td>
+
+                          {/* Día Generado */}
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <Calendar size={14} style={{ color: '#2563eb' }} />
+                              <strong style={{ color: '#0f172a', fontSize: '0.85rem' }}>
+                                {formatDate(comp.fechaGenerada)}
+                              </strong>
+                            </div>
+                          </td>
 
                         {/* Estado */}
                         <td>
@@ -616,8 +762,9 @@ export const WorkerCompensationPanel: React.FC = () => {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
+                    );
+                  })
+                )}
                 </tbody>
               </table>
             </div>

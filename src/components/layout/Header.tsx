@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, Calendar } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { CloudSyncBadge } from './CloudSyncBadge';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
@@ -67,7 +68,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </div>
       </div>
 
-      <div className="header-actions">
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <CloudSyncBadge />
         <div className="system-date-badge" title="Fecha del sistema">
           <Calendar size={15} style={{ color: '#2563eb' }} />
           <span style={{ textTransform: 'capitalize' }}>{dateFormatted}</span>
@@ -76,3 +78,4 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     </header>
   );
 };
+

@@ -29,6 +29,7 @@ export interface ResumenCompensacionesEmpleado {
 export interface CreateCompensacionDto {
   empleadoId: string;
   fechaGenerada: string;
+  fechaCompensacion?: string | null;
   observacion?: string;
 }
 

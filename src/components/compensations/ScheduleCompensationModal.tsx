@@ -54,6 +54,24 @@ export const ScheduleCompensationModal: React.FC<ScheduleCompensationModalProps>
       return;
     }
 
+    if (fechaCompensacion === compensation.fechaGenerada) {
+      setErrorMessage(
+        `El día generado trabajado (${formatDate(compensation.fechaGenerada)}) no puede ser igual a la fecha de compensación. Debe seleccionar una fecha de descanso diferente.`
+      );
+      return;
+    }
+
+    const employeeComps = compensationService.getByEmployee(compensation.empleadoId);
+    const duplicate = employeeComps.find(
+      (c) => c.id !== compensation.id && c.fechaCompensacion === fechaCompensacion && c.estado !== 'ANULADO'
+    );
+    if (duplicate) {
+      setErrorMessage(
+        `El trabajador ya tiene una compensación asignada para el ${formatDate(fechaCompensacion)} (${duplicate.estado}). No se pueden registrar dos compensaciones en la misma fecha para el mismo trabajador.`
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
 
@@ -145,8 +163,27 @@ export const ScheduleCompensationModal: React.FC<ScheduleCompensationModalProps>
           required
           value={fechaCompensacion}
           onChange={(e) => {
-            setFechaCompensacion(e.target.value);
-            if (e.target.value) setErrorMessage('');
+            const val = e.target.value;
+            setFechaCompensacion(val);
+            if (!val) {
+              setErrorMessage('');
+            } else if (val === compensation.fechaGenerada) {
+              setErrorMessage(
+                `El día generado trabajado (${formatDate(compensation.fechaGenerada)}) no puede ser igual a la fecha de compensación.`
+              );
+            } else {
+              const employeeComps = compensationService.getByEmployee(compensation.empleadoId);
+              const duplicate = employeeComps.find(
+                (c) => c.id !== compensation.id && c.fechaCompensacion === val && c.estado !== 'ANULADO'
+              );
+              if (duplicate) {
+                setErrorMessage(
+                  `El trabajador ya tiene una compensación asignada para el ${formatDate(val)} (${duplicate.estado}).`
+                );
+              } else {
+                setErrorMessage('');
+              }
+            }
           }}
           error={errorMessage}
           helper="El registro pasará al estado PROGRAMADO y quedará listo para ejecutarse."

@@ -8,10 +8,12 @@ interface AppContextType {
   setCurrentTab: (tab: NavigationTab) => void;
   selectedEmployeeIdForCompensations: string | null;
   setSelectedEmployeeIdForCompensations: (id: string | null) => void;
+  selectedCompensationIdsForPermissionSheet: string[] | null;
+  setSelectedCompensationIdsForPermissionSheet: (ids: string[] | null) => void;
   selectedDateForBulkPermissions: string | null;
   setSelectedDateForBulkPermissions: (date: string | null) => void;
   openEmployeeCompensations: (employeeId: string) => void;
-  openPermissionSheetForEmployee: (employeeId: string) => void;
+  openPermissionSheetForEmployee: (employeeId: string, compensationIds?: string[]) => void;
   openBulkPermissionSheetForDate: (date: string) => void;
   refreshKey: number;
   triggerRefresh: () => void;
@@ -24,6 +26,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
   const [selectedEmployeeIdForCompensations, setSelectedEmployeeIdForCompensations] =
     useState<string | null>(null);
+  const [selectedCompensationIdsForPermissionSheet, setSelectedCompensationIdsForPermissionSheet] =
+    useState<string[] | null>(null);
   const [selectedDateForBulkPermissions, setSelectedDateForBulkPermissions] =
     useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
@@ -44,8 +48,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentTab('compensaciones');
   };
 
-  const openPermissionSheetForEmployee = (employeeId: string) => {
+  const openPermissionSheetForEmployee = (employeeId: string, compensationIds?: string[]) => {
     setSelectedEmployeeIdForCompensations(employeeId);
+    setSelectedCompensationIdsForPermissionSheet(compensationIds && compensationIds.length > 0 ? compensationIds : null);
     setCurrentTab('permisos');
   };
 
@@ -65,6 +70,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentTab,
         selectedEmployeeIdForCompensations,
         setSelectedEmployeeIdForCompensations,
+        selectedCompensationIdsForPermissionSheet,
+        setSelectedCompensationIdsForPermissionSheet,
         selectedDateForBulkPermissions,
         setSelectedDateForBulkPermissions,
         openEmployeeCompensations,

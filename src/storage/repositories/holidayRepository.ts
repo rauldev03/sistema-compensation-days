@@ -77,6 +77,7 @@ export class HolidayRepository implements IHolidayRepository {
     const filtered = list.filter((h) => h.id !== id);
     if (filtered.length === list.length) return false;
     db.saveHolidays(filtered);
+    db.deleteHolidayRemote(id);
     return true;
   }
 }

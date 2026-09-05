@@ -316,6 +316,12 @@ export const CompensationByDatePanel: React.FC = () => {
   const handleMarkSingleCompensated = (record: CompensacionConEmpleado) => {
     if (record.estado === 'PENDIENTE') {
       const targetDate = selectedDate || todayISO();
+      if (record.fechaGenerada === targetDate) {
+        error(
+          `El día generado trabajado (${formatDateDisplay(record.fechaGenerada)}) no puede ser igual a la fecha de compensación. Asigna una fecha de descanso diferente.`
+        );
+        return;
+      }
       const sched = compensationService.scheduleCompensation(record.id, {
         fechaCompensacion: targetDate
       });
@@ -355,6 +361,7 @@ export const CompensationByDatePanel: React.FC = () => {
     setIsProcessing(true);
     let ok = 0;
     let fail = 0;
+    const errorsList: string[] = [];
 
     selectedIds.forEach((id) => {
       const rec = records.find((r) => r.id === id);
@@ -362,11 +369,29 @@ export const CompensationByDatePanel: React.FC = () => {
 
       if (bulkActionMode === 'COMPENSAR_HOY') {
         const targetDate = selectedDate || todayISO();
+        if (rec.fechaGenerada === targetDate) {
+          fail++;
+          errorsList.push(
+            `${rec.empleado?.apellidosNombres || 'Trabajador'}: No se puede compensar el mismo día generado (${formatDateDisplay(targetDate)}).`
+          );
+          return;
+        }
+
         if (rec.estado === 'PENDIENTE') {
-          compensationService.scheduleCompensation(id, { fechaCompensacion: targetDate });
+          const sched = compensationService.scheduleCompensation(id, { fechaCompensacion: targetDate });
+          if (!sched.success) {
+            fail++;
+            if (sched.error) errorsList.push(`${rec.empleado?.apellidosNombres || 'Trabajador'}: ${sched.error}`);
+            return;
+          }
         }
         const res = compensationService.markAsCompensated(id);
-        res.success ? ok++ : fail++;
+        if (res.success) {
+          ok++;
+        } else {
+          fail++;
+          if (res.error) errorsList.push(res.error);
+        }
       } else {
         const targetDate = rowCustomDates[id]?.enabled && rowCustomDates[id]?.date
           ? rowCustomDates[id].date
@@ -375,7 +400,12 @@ export const CompensationByDatePanel: React.FC = () => {
         const res = compensationService.scheduleCompensation(id, {
           fechaCompensacion: targetDate
         });
-        res.success ? ok++ : fail++;
+        if (res.success) {
+          ok++;
+        } else {
+          fail++;
+          if (res.error) errorsList.push(`${rec.empleado?.apellidosNombres || 'Trabajador'}: ${res.error}`);
+        }
       }
     });
 
@@ -394,7 +424,11 @@ export const CompensationByDatePanel: React.FC = () => {
       );
     }
     if (fail > 0) {
-      error(`${fail} registro(s) no pudieron actualizarse.`);
+      if (errorsList.length > 0) {
+        error(errorsList.slice(0, 2).join(' | '));
+      } else {
+        error(`${fail} registro(s) no pudieron actualizarse.`);
+      }
     }
   };
 

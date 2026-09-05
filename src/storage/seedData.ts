@@ -303,64 +303,75 @@ export const INITIAL_EMPLOYEES: Empleado[] = [
 ];
 
 export const INITIAL_COMPENSATIONS: Compensacion[] = [
-  // ── Empleado 1: CUBAS ESTELA CARLOS RAUL (6 registros: 1 Pendiente, 1 Programado, 4 Compensados) ──
+  // ── Empleado 1: CUBAS ESTELA CARLOS RAUL (7 días generados trabajados, todos PENDIENTES) ──
   {
     id: 'comp-001',
     empleadoId: 'emp-01',
     fechaGenerada: '2026-01-01',
-    fechaCompensacion: '2026-01-12',
-    estado: 'COMPENSADO',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
     observacion: 'Guardia soporte técnico feriado Año Nuevo',
     motivoAnulacion: null,
     createdAt: '2026-01-01T18:00:00.000Z',
-    updatedAt: '2026-01-12T18:00:00.000Z'
+    updatedAt: '2026-01-01T18:00:00.000Z'
   },
   {
     id: 'comp-002',
     empleadoId: 'emp-01',
     fechaGenerada: '2026-02-08',
-    fechaCompensacion: '2026-02-16',
-    estado: 'COMPENSADO',
-    observacion: 'Migración base de datos principal',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
+    observacion: 'Migración base de datos principal y servidores',
     motivoAnulacion: null,
     createdAt: '2026-02-08T18:00:00.000Z',
-    updatedAt: '2026-02-16T18:00:00.000Z'
+    updatedAt: '2026-02-08T18:00:00.000Z'
   },
   {
     id: 'comp-003',
     empleadoId: 'emp-01',
     fechaGenerada: '2026-04-02',
-    fechaCompensacion: '2026-04-13',
-    estado: 'COMPENSADO',
-    observacion: 'Feriado Jueves Santo laborado',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
+    observacion: 'Feriado Jueves Santo guardia soporte planta',
     motivoAnulacion: null,
     createdAt: '2026-04-02T18:00:00.000Z',
-    updatedAt: '2026-04-13T18:00:00.000Z'
+    updatedAt: '2026-04-02T18:00:00.000Z'
   },
   {
     id: 'comp-004',
     empleadoId: 'emp-01',
-    fechaGenerada: '2026-06-29',
-    fechaCompensacion: '2026-07-06',
-    estado: 'COMPENSADO',
-    observacion: 'Atención incidencias enlaces de red',
+    fechaGenerada: '2026-05-01',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
+    observacion: 'Feriado Día del Trabajo guardia operativa TI',
     motivoAnulacion: null,
-    createdAt: '2026-06-29T18:00:00.000Z',
-    updatedAt: '2026-07-06T18:00:00.000Z'
+    createdAt: '2026-05-01T18:00:00.000Z',
+    updatedAt: '2026-05-01T18:00:00.000Z'
   },
   {
     id: 'comp-005',
     empleadoId: 'emp-01',
-    fechaGenerada: '2026-08-06',
-    fechaCompensacion: '2026-09-04',
-    estado: 'PROGRAMADO',
-    observacion: 'Feriado Batalla de Junín - compensación programada',
+    fechaGenerada: '2026-06-29',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
+    observacion: 'Feriado San Pedro y San Pablo atención incidencias red',
     motivoAnulacion: null,
-    createdAt: '2026-08-06T18:00:00.000Z',
-    updatedAt: '2026-08-10T10:00:00.000Z'
+    createdAt: '2026-06-29T18:00:00.000Z',
+    updatedAt: '2026-06-29T18:00:00.000Z'
   },
   {
     id: 'comp-006',
+    empleadoId: 'emp-01',
+    fechaGenerada: '2026-08-06',
+    fechaCompensacion: null,
+    estado: 'PENDIENTE',
+    observacion: 'Feriado Batalla de Junín guardia sistemas',
+    motivoAnulacion: null,
+    createdAt: '2026-08-06T18:00:00.000Z',
+    updatedAt: '2026-08-06T18:00:00.000Z'
+  },
+  {
+    id: 'comp-006b',
     empleadoId: 'emp-01',
     fechaGenerada: '2026-08-23',
     fechaCompensacion: null,

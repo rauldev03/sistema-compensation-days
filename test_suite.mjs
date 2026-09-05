@@ -243,6 +243,32 @@ async function runTests() {
   assert.strictEqual(rescheduleOtherDay.data.fechaCompensacion, '2026-08-25');
   console.log('   - Consulta por fecha y función "Compensar otro día": OK');
 
+  // 4.9 Regla A: El día generado NO puede ser igual a la fecha de compensación
+  const sameDateAttempt = compensationService.scheduleCompensation(reReg.data.id, {
+    fechaCompensacion: '2026-07-28' // Igual a la fecha generada de reReg
+  });
+  assert.strictEqual(sameDateAttempt.success, false, 'No debe permitir fecha de compensación igual al día trabajado');
+  console.log('   - Regla A: Bloqueo cuando día generado es igual a fecha compensación: OK');
+
+  // 4.10 Regla B: No puede haber 2 fechas de compensación iguales en la lista por trabajador
+  const regDay3 = compensationService.registerPendingDay({
+    empleadoId: empId,
+    fechaGenerada: '2026-08-15',
+    observacion: 'Tercer día de prueba'
+  });
+  assert.strictEqual(regDay3.success, true);
+
+  // Intentar asignar fechaCompensacion '2026-08-25' que ya tiene reReg
+  const duplicateCompDateAttempt = compensationService.scheduleCompensation(regDay3.data.id, {
+    fechaCompensacion: '2026-08-25'
+  });
+  assert.strictEqual(
+    duplicateCompDateAttempt.success,
+    false,
+    'No debe permitir 2 fechas de compensación iguales para el mismo trabajador'
+  );
+  console.log('   - Regla B: Bloqueo de fechas de compensación duplicadas para el mismo trabajador: OK');
+
   // 5. Dashboard y Métricas
   console.log('\n✅ 5. Pruebas de Métricas de Dashboard:');
   const metrics = dashboardService.getMetrics();

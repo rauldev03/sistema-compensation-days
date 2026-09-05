@@ -47,12 +47,14 @@ interface OfficialPermissionSheetDocProps {
   data: OfficialSheetData;
   className?: string;
   isPrintable?: boolean;
+  showRrhhSignature?: boolean;
 }
 
 export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProps> = ({
   data,
   className = '',
-  isPrintable = false
+  isPrintable = false,
+  showRrhhSignature = true
 }) => {
   return (
     <div
@@ -354,7 +356,16 @@ export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProp
           <div className="doc-signature-label">JEFE DE AREA</div>
         </div>
 
-        <div className="doc-signature-box">
+        <div className="doc-signature-box doc-signature-box-rrhh">
+          {showRrhhSignature && (
+            <div className="doc-signature-img-wrapper">
+              <img
+                src="/firma-jefe-rrhh.png"
+                alt="Firma Jefe de RRHH"
+                className="doc-signature-img"
+              />
+            </div>
+          )}
           <div className="doc-signature-line" />
           <div className="doc-signature-label">JEFE DE RRHH</div>
         </div>
