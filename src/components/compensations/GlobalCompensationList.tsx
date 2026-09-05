@@ -6,7 +6,9 @@ import {
   PlusCircle,
   Edit2,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Banknote,
+  FileText
 } from 'lucide-react';
 import { CompensacionConEmpleado, FilterOptions } from '../../types';
 import { compensationService, employeeService } from '../../services';
@@ -265,6 +267,42 @@ export const GlobalCompensationList: React.FC = () => {
                         <strong style={{ color: '#047857', fontSize: '0.825rem' }}>
                           {formatDate(c.fechaCompensacion)}
                         </strong>
+                      ) : c.formaCompensacion === 'REMUNERACION' ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '6px',
+                            background: '#f0fdf4',
+                            color: '#166534',
+                            border: '1px solid #bbf7d0',
+                            fontSize: '0.725rem',
+                            fontWeight: 600
+                          }}
+                          title="Compensado mediante pago en remuneración"
+                        >
+                          <Banknote size={11} /> Pago en Remun.
+                        </span>
+                      ) : c.formaCompensacion === 'LIQUIDACION' ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '6px',
+                            background: '#f0f9ff',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
+                            fontSize: '0.725rem',
+                            fontWeight: 600
+                          }}
+                          title="Compensado en liquidación de beneficios sociales"
+                        >
+                          <FileText size={11} /> Liquidación BB.SS.
+                        </span>
                       ) : (
                         <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>-</span>
                       )}

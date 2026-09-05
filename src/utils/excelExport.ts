@@ -2,6 +2,19 @@ import * as XLSX from 'xlsx';
 import { Empleado, Compensacion, CompensacionConEmpleado } from '../types';
 import { formatDateDisplay } from './dateUtils';
 
+const getModalidadLabel = (forma?: string) => {
+  if (forma === 'REMUNERACION') return 'Pago en Remuneración';
+  if (forma === 'LIQUIDACION') return 'Liquidación BB.SS.';
+  return 'Día de Descanso';
+};
+
+const getFechaCompensacionLabel = (c: Compensacion | CompensacionConEmpleado) => {
+  if (c.fechaCompensacion) return formatDateDisplay(c.fechaCompensacion);
+  if (c.formaCompensacion === 'REMUNERACION') return 'Pago en Remuneración';
+  if (c.formaCompensacion === 'LIQUIDACION') return 'Liquidación BB.SS.';
+  return c.estado === 'COMPENSADO' ? 'Compensado' : (c.estado === 'PENDIENTE' ? 'Pendiente' : '-');
+};
+
 /**
  * Exporta las compensaciones de un trabajador específico a formato Excel (.xlsx)
  */
@@ -19,7 +32,8 @@ export const exportWorkerCompensationsToExcel = (
     'Cargo': employee.cargo,
     'Día Trabajado (Generado)': formatDateDisplay(c.fechaGenerada),
     'Estado': c.estado,
-    'Fecha Compensación': c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'Pendiente',
+    'Modalidad / Forma': getModalidadLabel(c.formaCompensacion),
+    'Fecha Compensación': getFechaCompensacionLabel(c),
     'Observación / Motivo': c.observacion || '-',
     'Motivo de Anulación': c.motivoAnulacion || '-',
     'Fecha de Registro': c.createdAt ? new Date(c.createdAt).toLocaleString('es-PE') : '-',
@@ -37,7 +51,8 @@ export const exportWorkerCompensationsToExcel = (
     { wch: 22 },  // Cargo
     { wch: 18 },  // Día Generado
     { wch: 15 },  // Estado
-    { wch: 20 },  // Fecha Compensación
+    { wch: 22 },  // Modalidad / Forma
+    { wch: 22 },  // Fecha Compensación
     { wch: 35 },  // Observación
     { wch: 25 },  // Motivo Anulación
     { wch: 22 },  // Fecha Registro
@@ -76,7 +91,8 @@ export const exportGlobalCompensationsToExcel = (
     'Cargo': c.empleado?.cargo || '-',
     'Día Trabajado': formatDateDisplay(c.fechaGenerada),
     'Estado': c.estado,
-    'Fecha Compensación': c.fechaCompensacion ? formatDateDisplay(c.fechaCompensacion) : 'Pendiente',
+    'Modalidad / Forma': getModalidadLabel(c.formaCompensacion),
+    'Fecha Compensación': getFechaCompensacionLabel(c),
     'Observación': c.observacion || '-',
     'Motivo Anulación': c.motivoAnulacion || '-'
   }));
@@ -92,7 +108,8 @@ export const exportGlobalCompensationsToExcel = (
     { wch: 22 },  // Cargo
     { wch: 16 },  // Día Trabajado
     { wch: 15 },  // Estado
-    { wch: 20 },  // Fecha Compensación
+    { wch: 22 },  // Modalidad / Forma
+    { wch: 22 },  // Fecha Compensación
     { wch: 35 },  // Observación
     { wch: 25 }   // Motivo Anulación
   ];

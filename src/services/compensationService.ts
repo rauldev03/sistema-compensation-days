@@ -3,6 +3,7 @@ import {
   CompensacionConEmpleado,
   CreateCompensacionDto,
   EstadoCompensacion,
+  FormaCompensacion,
   ProgramarCompensacionDto,
   AnularCompensacionDto,
   ResumenCompensacionesEmpleado,
@@ -176,7 +177,8 @@ export class CompensationService {
     const updated = compensationRepository.scheduleCompensation(
       id,
       dto.fechaCompensacion,
-      dto.observacion
+      dto.observacion,
+      dto.formaCompensacion
     );
 
     if (!updated) {
@@ -268,6 +270,7 @@ export class CompensationService {
       ...(dto.fechaGenerada ? { fechaGenerada: dto.fechaGenerada } : {}),
       ...(dto.fechaCompensacion !== undefined ? { fechaCompensacion: dto.fechaCompensacion } : {}),
       ...(dto.estado ? { estado: dto.estado } : {}),
+      ...(dto.formaCompensacion !== undefined ? { formaCompensacion: dto.formaCompensacion } : {}),
       ...(dto.observacion !== undefined ? { observacion: dto.observacion.trim() } : {}),
       ...(dto.motivoAnulacion !== undefined ? { motivoAnulacion: dto.motivoAnulacion } : {})
     });
@@ -328,6 +331,7 @@ export class CompensationService {
       identificadorTrabajador: string; // Codigo o DNI
       fechaGenerada: string;
       estado?: EstadoCompensacion;
+      formaCompensacion?: FormaCompensacion;
       fechaCompensacion?: string | null;
       observacion?: string;
     }[]
@@ -406,11 +410,13 @@ export class CompensationService {
       }
 
       // 5. Crear compensación con estado y fecha correspondiente
-      const estadoCalculado: EstadoCompensacion = item.estado || (compDate ? 'COMPENSADO' : 'PENDIENTE');
+      const formaCalculada = item.formaCompensacion || (compDate ? 'DESCANSO' : undefined);
+      const estadoCalculado: EstadoCompensacion = item.estado || (compDate || (formaCalculada && formaCalculada !== 'DESCANSO') ? 'COMPENSADO' : 'PENDIENTE');
       const created = compensationRepository.create({
         empleadoId: emp.id,
         fechaGenerada: item.fechaGenerada,
         fechaCompensacion: compDate || null,
+        formaCompensacion: formaCalculada,
         estado: estadoCalculado,
         observacion: item.observacion || ''
       });

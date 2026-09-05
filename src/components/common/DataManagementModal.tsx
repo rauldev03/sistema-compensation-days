@@ -10,7 +10,7 @@ import { db } from '../../storage';
 import { employeeService, compensationService } from '../../services';
 import { useToast } from '../../context/ToastContext';
 import { useApp } from '../../context/AppContext';
-import { CreateEmpleadoDto, EstadoCompensacion } from '../../types';
+import { CreateEmpleadoDto, EstadoCompensacion, FormaCompensacion } from '../../types';
 import { employeeRepository, compensationRepository } from '../../storage';
 import { parseDateString, formatDateDisplay } from '../../utils/dateUtils';
 
@@ -35,6 +35,7 @@ interface CompPreviewRow {
   fechaGenerada: string;    // YYYY-MM-DD
   fechaGeneradaRaw: string; // original
   estado: EstadoCompensacion;
+  formaCompensacion?: FormaCompensacion;
   fechaCompensada: string | null; // YYYY-MM-DD
   fechaCompensadaRaw: string;     // original
   observacion: string;
@@ -141,17 +142,48 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Normalizar Estado
+    // Normalizar Estado y Forma de Compensación
     let estado: EstadoCompensacion = 'PENDIENTE';
+    let formaCompensacion: FormaCompensacion = 'DESCANSO';
+
     const estUpper = estadoRaw.trim().toUpperCase();
-    if (estUpper.includes('COMPENSAD')) {
+    const compUpper = fechaCompensadaRaw.trim().toUpperCase();
+    const obsUpper = observacion.trim().toUpperCase();
+
+    const isRemun =
+      estUpper.includes('REMUNERAC') ||
+      compUpper.includes('REMUNERAC') ||
+      obsUpper.includes('REMUNERAC') ||
+      estUpper.includes('PLANILLA') ||
+      compUpper.includes('PLANILLA');
+
+    const isLiquid =
+      estUpper.includes('LIQUIDAC') ||
+      compUpper.includes('LIQUIDAC') ||
+      obsUpper.includes('LIQUIDAC') ||
+      estUpper.includes('BBSS') ||
+      compUpper.includes('BBSS') ||
+      estUpper.includes('CESE') ||
+      compUpper.includes('CESE');
+
+    if (isRemun) {
       estado = 'COMPENSADO';
+      formaCompensacion = 'REMUNERACION';
+    } else if (isLiquid) {
+      estado = 'COMPENSADO';
+      formaCompensacion = 'LIQUIDACION';
+    } else if (estUpper.includes('COMPENSAD')) {
+      estado = 'COMPENSADO';
+      formaCompensacion = 'DESCANSO';
     } else if (estUpper.includes('PROGRAMAD')) {
       estado = 'PROGRAMADO';
+      formaCompensacion = 'DESCANSO';
     } else if (estUpper.includes('ANULAD')) {
       estado = 'ANULADO';
+      formaCompensacion = 'DESCANSO';
     } else {
       estado = 'PENDIENTE';
+      formaCompensacion = 'DESCANSO';
     }
 
     // Parse fecha trabajada (fecha generada)
@@ -164,6 +196,7 @@ const parseCompensationPreview = (
         fechaGenerada: '',
         fechaGeneradaRaw,
         estado,
+        formaCompensacion,
         fechaCompensada: null,
         fechaCompensadaRaw,
         observacion,
@@ -173,9 +206,11 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Parse fecha compensada (si fue proporcionada)
+    // Parse fecha compensada (si fue proporcionada y no es pago en remuneración o liquidación)
     let fechaCompensada: string | null = null;
-    if (fechaCompensadaRaw && fechaCompensadaRaw.trim()) {
+    const isPaidModality = formaCompensacion === 'REMUNERACION' || formaCompensacion === 'LIQUIDACION';
+
+    if (!isPaidModality && fechaCompensadaRaw && fechaCompensadaRaw.trim()) {
       fechaCompensada = parseDateString(fechaCompensadaRaw);
       if (!fechaCompensada) {
         rows.push({
@@ -185,6 +220,7 @@ const parseCompensationPreview = (
           fechaGenerada,
           fechaGeneradaRaw,
           estado,
+          formaCompensacion,
           fechaCompensada: null,
           fechaCompensadaRaw,
           observacion,
@@ -215,6 +251,7 @@ const parseCompensationPreview = (
         fechaGenerada,
         fechaGeneradaRaw,
         estado,
+        formaCompensacion,
         fechaCompensada,
         fechaCompensadaRaw,
         observacion,
@@ -244,6 +281,7 @@ const parseCompensationPreview = (
         fechaGenerada,
         fechaGeneradaRaw,
         estado,
+        formaCompensacion,
         fechaCompensada,
         fechaCompensadaRaw,
         observacion,
@@ -263,6 +301,7 @@ const parseCompensationPreview = (
       fechaGenerada,
       fechaGeneradaRaw,
       estado,
+      formaCompensacion,
       fechaCompensada,
       fechaCompensadaRaw,
       observacion,
@@ -474,6 +513,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
       identificadorTrabajador: row.rawDni,
       fechaGenerada: row.fechaGenerada,
       estado: row.estado,
+      formaCompensacion: row.formaCompensacion || 'DESCANSO',
       fechaCompensacion: row.fechaCompensada || null,
       observacion: row.observacion || ''
     }));
@@ -941,6 +981,14 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                               {row.fechaCompensada ? (
                                 <span style={{ color: '#0f172a', fontWeight: 600 }}>
                                   {formatDateDisplay(row.fechaCompensada)}
+                                </span>
+                              ) : row.formaCompensacion === 'REMUNERACION' ? (
+                                <span style={{ color: '#166534', fontWeight: 700, fontSize: '0.72rem' }}>
+                                  💵 Pago en Remuneración
+                                </span>
+                              ) : row.formaCompensacion === 'LIQUIDACION' ? (
+                                <span style={{ color: '#0369a1', fontWeight: 700, fontSize: '0.72rem' }}>
+                                  📋 Liquidación BB.SS.
                                 </span>
                               ) : row.fechaCompensadaRaw ? (
                                 <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{row.fechaCompensadaRaw}</span>

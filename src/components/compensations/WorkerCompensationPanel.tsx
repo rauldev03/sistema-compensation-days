@@ -12,7 +12,14 @@ import {
   Calendar,
   Trash2,
   FileSpreadsheet,
-  Printer
+  Printer,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowDownUp,
+  Filter,
+  Banknote,
+  FileText
 } from 'lucide-react';
 import { Empleado, Compensacion } from '../../types';
 import { employeeService, compensationService } from '../../services';
@@ -118,10 +125,92 @@ export const WorkerCompensationPanel: React.FC = () => {
     setSelectedCompIds(new Set());
   }, [selectedEmployee?.id]);
 
+  // Sorting and filtering state
+  type SortField = 'fechaGenerada' | 'estado' | 'fechaCompensacion' | 'observacion';
+  type SortDirection = 'asc' | 'desc';
+
+  const [sortField, setSortField] = useState<SortField>('fechaGenerada');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [filterStatus, setFilterStatus] = useState<string>('TODOS');
+
+  const statePriority: Record<string, number> = {
+    PENDIENTE: 1,
+    PROGRAMADO: 2,
+    COMPENSADO: 3,
+    ANULADO: 4
+  };
+
+  const sortedCompensations = useMemo(() => {
+    let list = [...employeeCompensations];
+
+    if (filterStatus !== 'TODOS') {
+      list = list.filter((c) => c.estado === filterStatus);
+    }
+
+    return list.sort((a, b) => {
+      if (sortField === 'fechaGenerada') {
+        const comp = a.fechaGenerada.localeCompare(b.fechaGenerada);
+        return sortDirection === 'asc' ? comp : -comp;
+      }
+
+      if (sortField === 'estado') {
+        const pA = statePriority[a.estado] || 99;
+        const pB = statePriority[b.estado] || 99;
+        if (pA !== pB) {
+          return sortDirection === 'asc' ? pA - pB : pB - pA;
+        }
+        return b.fechaGenerada.localeCompare(a.fechaGenerada);
+      }
+
+      if (sortField === 'fechaCompensacion') {
+        const fA = a.fechaCompensacion || '';
+        const fB = b.fechaCompensacion || '';
+        if (!fA && !fB) return b.fechaGenerada.localeCompare(a.fechaGenerada);
+        if (!fA) return 1;
+        if (!fB) return -1;
+        const comp = fA.localeCompare(fB);
+        return sortDirection === 'asc' ? comp : -comp;
+      }
+
+      if (sortField === 'observacion') {
+        const oA = (a.observacion || '').toLowerCase();
+        const oB = (b.observacion || '').toLowerCase();
+        const comp = oA.localeCompare(oB);
+        return sortDirection === 'asc' ? comp : -comp;
+      }
+
+      return 0;
+    });
+  }, [employeeCompensations, sortField, sortDirection, filterStatus]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      if (field === 'fechaGenerada' || field === 'fechaCompensacion') {
+        setSortDirection('desc');
+      } else {
+        setSortDirection('asc');
+      }
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={12} style={{ color: '#94a3b8', opacity: 0.5, marginLeft: '4px', flexShrink: 0 }} />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp size={12} style={{ color: '#2563eb', marginLeft: '4px', flexShrink: 0, strokeWidth: 2.5 }} />
+    ) : (
+      <ArrowDown size={12} style={{ color: '#2563eb', marginLeft: '4px', flexShrink: 0, strokeWidth: 2.5 }} />
+    );
+  };
+
   // Selectable items (excluding ANULADO)
   const availableCompensations = useMemo(() => {
-    return employeeCompensations.filter((c) => c.estado !== 'ANULADO');
-  }, [employeeCompensations]);
+    return sortedCompensations.filter((c) => c.estado !== 'ANULADO');
+  }, [sortedCompensations]);
 
   const allAvailableSelected = useMemo(() => {
     return (
@@ -260,15 +349,15 @@ export const WorkerCompensationPanel: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    if (!selectedEmployee || employeeCompensations.length === 0) {
+    if (!selectedEmployee || sortedCompensations.length === 0) {
       warning('No hay registros de compensación para exportar.', 'Sin datos');
       return;
     }
 
-    exportWorkerCompensationsToExcel(selectedEmployee, employeeCompensations);
+    exportWorkerCompensationsToExcel(selectedEmployee, sortedCompensations);
 
     success(
-      `Se descargó el archivo Excel (.xlsx) con ${employeeCompensations.length} registro(s) de ${selectedEmployee.apellidosNombres}.`,
+      `Se descargó el archivo Excel (.xlsx) con ${sortedCompensations.length} registro(s) de ${selectedEmployee.apellidosNombres}.`,
       'Excel Generado con Éxito'
     );
   };
@@ -547,20 +636,84 @@ export const WorkerCompensationPanel: React.FC = () => {
 
           {/* 3. TABLA DE DÍAS DE COMPENSACIÓN DEL TRABAJADOR */}
           <div className="table-wrapper">
-            <div className="card-header" style={{ background: '#ffffff' }}>
+            <div className="card-header" style={{ background: '#ffffff', flexWrap: 'wrap', gap: '0.65rem', padding: '0.75rem 1rem' }}>
               <div className="card-title" style={{ fontSize: '0.9rem' }}>
                 <CalendarCheck size={16} style={{ color: '#2563eb' }} />
                 <span>Control de Días Pendientes y Compensaciones (1 a 1)</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                {/* Selector Ordenar por */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem' }}>
+                  <label htmlFor="sort-select" style={{ color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                    <ArrowDownUp size={13} style={{ color: '#2563eb' }} />
+                    <span>Ordenar por:</span>
+                  </label>
+                  <select
+                    id="sort-select"
+                    value={`${sortField}_${sortDirection}`}
+                    onChange={(e) => {
+                      const [f, d] = e.target.value.split('_') as [SortField, SortDirection];
+                      setSortField(f);
+                      setSortDirection(d);
+                    }}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      cursor: 'pointer',
+                      color: '#0f172a',
+                      fontWeight: 500
+                    }}
+                  >
+                    <option value="fechaGenerada_desc">Día Generado (Más reciente)</option>
+                    <option value="fechaGenerada_asc">Día Generado (Más antiguo)</option>
+                    <option value="estado_asc">Estado (Pendientes primero)</option>
+                    <option value="estado_desc">Estado (Compensados primero)</option>
+                    <option value="fechaCompensacion_desc">Fecha Compensada (Más reciente)</option>
+                    <option value="fechaCompensacion_asc">Fecha Compensada (Más antigua)</option>
+                    <option value="observacion_asc">Observación (A - Z)</option>
+                  </select>
+                </div>
+
+                {/* Filtro por Estado */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem' }}>
+                  <label htmlFor="filter-select" style={{ color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                    <Filter size={13} style={{ color: '#64748b' }} />
+                    <span>Estado:</span>
+                  </label>
+                  <select
+                    id="filter-select"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      cursor: 'pointer',
+                      color: '#0f172a',
+                      fontWeight: 500
+                    }}
+                  >
+                    <option value="TODOS">Todos ({employeeCompensations.length})</option>
+                    <option value="PENDIENTE">Pendientes ({summary.pendientes})</option>
+                    <option value="PROGRAMADO">Programados ({summary.programados})</option>
+                    <option value="COMPENSADO">Compensados ({summary.compensados})</option>
+                    <option value="ANULADO">Anulados ({summary.anulados})</option>
+                  </select>
+                </div>
+
                 <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  Total: <strong>{employeeCompensations.length}</strong> registro(s)
+                  Total: <strong>{sortedCompensations.length}</strong> registro(s)
                 </span>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={handleExportExcel}
-                  disabled={employeeCompensations.length === 0}
+                  disabled={sortedCompensations.length === 0}
                   icon={<FileSpreadsheet size={13} style={{ color: '#16a34a' }} />}
                   title="Descargar archivo Excel (.xlsx)"
                 >
@@ -584,30 +737,87 @@ export const WorkerCompensationPanel: React.FC = () => {
                         title="Seleccionar / Deseleccionar todos los días disponibles"
                       />
                     </th>
-                    <th style={{ width: '130px' }}>Día Generado</th>
-                    <th style={{ width: '120px' }}>Estado</th>
-                    <th style={{ width: '150px' }}>Fecha Compensación</th>
-                    <th>Observación / Motivo</th>
+                    <th
+                      style={{ width: '140px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => handleSort('fechaGenerada')}
+                      title="Clic para ordenar por Día Generado"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ color: sortField === 'fechaGenerada' ? '#2563eb' : 'inherit', fontWeight: sortField === 'fechaGenerada' ? 700 : 'inherit' }}>
+                          Día Generado
+                        </span>
+                        {renderSortIcon('fechaGenerada')}
+                      </div>
+                    </th>
+                    <th
+                      style={{ width: '130px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => handleSort('estado')}
+                      title="Clic para ordenar por Estado"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ color: sortField === 'estado' ? '#2563eb' : 'inherit', fontWeight: sortField === 'estado' ? 700 : 'inherit' }}>
+                          Estado
+                        </span>
+                        {renderSortIcon('estado')}
+                      </div>
+                    </th>
+                    <th
+                      style={{ width: '165px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => handleSort('fechaCompensacion')}
+                      title="Clic para ordenar por Fecha de Compensación"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ color: sortField === 'fechaCompensacion' ? '#2563eb' : 'inherit', fontWeight: sortField === 'fechaCompensacion' ? 700 : 'inherit' }}>
+                          Fecha Compensación
+                        </span>
+                        {renderSortIcon('fechaCompensacion')}
+                      </div>
+                    </th>
+                    <th
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => handleSort('observacion')}
+                      title="Clic para ordenar por Observación / Motivo"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ color: sortField === 'observacion' ? '#2563eb' : 'inherit', fontWeight: sortField === 'observacion' ? 700 : 'inherit' }}>
+                          Observación / Motivo
+                        </span>
+                        {renderSortIcon('observacion')}
+                      </div>
+                    </th>
                     <th style={{ textAlign: 'right', minWidth: '220px' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {employeeCompensations.length === 0 ? (
+                  {sortedCompensations.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
                         <div className="empty-state">
                           <Clock className="empty-state-icon" style={{ color: '#94a3b8' }} />
                           <div className="empty-state-title">
-                            No hay días trabajados registrados para este trabajador
+                            {employeeCompensations.length > 0
+                              ? `No hay registros con el estado "${filterStatus}"`
+                              : 'No hay días trabajados registrados para este trabajador'}
                           </div>
                           <div className="empty-state-desc">
-                            Haga clic en <strong>"+ Generar Día Trabajado"</strong> para registrar una guardia, feriado o día trabajado que generará compensación.
+                            {employeeCompensations.length > 0 ? (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ marginTop: '0.5rem' }}
+                                onClick={() => setFilterStatus('TODOS')}
+                              >
+                                Ver todos los registros ({employeeCompensations.length})
+                              </button>
+                            ) : (
+                              <>Haga clic en <strong>"+ Generar Día Trabajado"</strong> para registrar una guardia, feriado o día trabajado que generará compensación.</>
+                            )}
                           </div>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    employeeCompensations.map((comp) => {
+                    sortedCompensations.map((comp) => {
                       const isChecked = selectedCompIds.has(comp.id);
                       const isAnnulled = comp.estado === 'ANULADO';
 
@@ -666,6 +876,44 @@ export const WorkerCompensationPanel: React.FC = () => {
                                 {formatDate(comp.fechaCompensacion)}
                               </strong>
                             </div>
+                          ) : comp.formaCompensacion === 'REMUNERACION' ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '6px',
+                                background: '#f0fdf4',
+                                color: '#166534',
+                                border: '1px solid #bbf7d0',
+                                fontSize: '0.75rem',
+                                fontWeight: 600
+                              }}
+                              title="Compensado mediante pago en remuneración (sin fecha de descanso)"
+                            >
+                              <Banknote size={12} />
+                              Pago en Remun.
+                            </span>
+                          ) : comp.formaCompensacion === 'LIQUIDACION' ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '6px',
+                                background: '#f0f9ff',
+                                color: '#0369a1',
+                                border: '1px solid #bae6fd',
+                                fontSize: '0.75rem',
+                                fontWeight: 600
+                              }}
+                              title="Compensado en liquidación de beneficios sociales (sin fecha de descanso)"
+                            >
+                              <FileText size={12} />
+                              Liquidación BB.SS.
+                            </span>
                           ) : (
                             <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.8rem' }}>-</span>
                           )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, User, Save, Trash2 } from 'lucide-react';
-import { Compensacion, EstadoCompensacion, Empleado } from '../../types';
+import { Edit3, User, Save, Trash2, Calendar, Banknote, FileText } from 'lucide-react';
+import { Compensacion, EstadoCompensacion, Empleado, FormaCompensacion } from '../../types';
 import { compensationService } from '../../services';
 import { useToast } from '../../context/ToastContext';
 import { Modal } from '../common/Modal';
@@ -26,6 +26,7 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
 
   const [fechaGenerada, setFechaGenerada] = useState('');
   const [fechaCompensacion, setFechaCompensacion] = useState('');
+  const [formaCompensacion, setFormaCompensacion] = useState<FormaCompensacion>('DESCANSO');
   const [estado, setEstado] = useState<EstadoCompensacion>('PENDIENTE');
   const [observacion, setObservacion] = useState('');
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
@@ -36,6 +37,7 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
     if (compensation) {
       setFechaGenerada(compensation.fechaGenerada || '');
       setFechaCompensacion(compensation.fechaCompensacion || '');
+      setFormaCompensacion(compensation.formaCompensacion || 'DESCANSO');
       setEstado(compensation.estado || 'PENDIENTE');
       setObservacion(compensation.observacion || '');
       setMotivoAnulacion(compensation.motivoAnulacion || '');
@@ -47,10 +49,7 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
 
   const handleEstadoChange = (newEstado: EstadoCompensacion) => {
     setEstado(newEstado);
-    // If switched to PENDIENTE or ANULADO, user might want to clear or keep compensation date
-    if (newEstado === 'PENDIENTE' && fechaCompensacion) {
-      // Optional: keep or prompt
-    }
+    setErrors({});
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -66,8 +65,8 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       return;
     }
 
-    if (estado === 'COMPENSADO' && !fechaCompensacion.trim()) {
-      setErrors({ fechaCompensacion: 'Un registro en estado COMPENSADO debe tener fecha de compensación.' });
+    if (estado === 'COMPENSADO' && formaCompensacion === 'DESCANSO' && !fechaCompensacion.trim()) {
+      setErrors({ fechaCompensacion: 'Un registro compensado con descanso debe tener fecha de compensación.' });
       return;
     }
 
@@ -76,7 +75,8 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       return;
     }
 
-    const trimCompDate = fechaCompensacion.trim();
+    const isPaidModality = estado === 'COMPENSADO' && (formaCompensacion === 'REMUNERACION' || formaCompensacion === 'LIQUIDACION');
+    const trimCompDate = isPaidModality ? '' : (estado === 'PENDIENTE' ? '' : fechaCompensacion.trim());
 
     // Regla A: fechaGenerada != fechaCompensacion
     if (estado !== 'ANULADO' && trimCompDate && fechaGenerada === trimCompDate) {
@@ -107,6 +107,7 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
       fechaGenerada,
       fechaCompensacion: trimCompDate || null,
       estado,
+      formaCompensacion: estado === 'COMPENSADO' ? formaCompensacion : 'DESCANSO',
       observacion: observacion.trim(),
       motivoAnulacion: estado === 'ANULADO' ? motivoAnulacion.trim() : null
     });
@@ -336,34 +337,154 @@ export const EditCompensationModal: React.FC<EditCompensationModalProps> = ({
           </div>
         </div>
 
-        {/* 3. Fecha de Compensación */}
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-            <label className="form-label" style={{ marginBottom: 0, fontWeight: 700, fontSize: '0.775rem' }}>
-              3. Fecha de Compensación / Descanso
+        {/* Modalidad de Compensación (Visible cuando estado es COMPENSADO) */}
+        {estado === 'COMPENSADO' && (
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label" style={{ fontWeight: 700, fontSize: '0.775rem', marginBottom: '0.35rem' }}>
+              Modalidad de Compensación:
             </label>
-            {fechaCompensacion && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setFechaCompensacion('')}
-                style={{ fontSize: '0.7rem', color: '#64748b', padding: '0 0.3rem', height: '20px' }}
+                className={`btn btn-sm ${formaCompensacion === 'DESCANSO' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  padding: '0.5rem 0.3rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '3px',
+                  fontSize: '0.725rem',
+                  textAlign: 'center',
+                  border: formaCompensacion === 'DESCANSO' ? '1px solid #1d4ed8' : '1px solid #cbd5e1'
+                }}
+                onClick={() => {
+                  setFormaCompensacion('DESCANSO');
+                  setErrors({});
+                }}
               >
-                Limpiar fecha
+                <Calendar size={14} />
+                <span style={{ fontWeight: formaCompensacion === 'DESCANSO' ? 700 : 500 }}>Día Descanso</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                className={`btn btn-sm ${formaCompensacion === 'REMUNERACION' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  padding: '0.5rem 0.3rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '3px',
+                  fontSize: '0.725rem',
+                  textAlign: 'center',
+                  border: formaCompensacion === 'REMUNERACION' ? '1px solid #1d4ed8' : '1px solid #cbd5e1'
+                }}
+                onClick={() => {
+                  setFormaCompensacion('REMUNERACION');
+                  setErrors({});
+                }}
+              >
+                <Banknote size={14} />
+                <span style={{ fontWeight: formaCompensacion === 'REMUNERACION' ? 700 : 500 }}>En Remun.</span>
+              </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${formaCompensacion === 'LIQUIDACION' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  padding: '0.5rem 0.3rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '3px',
+                  fontSize: '0.725rem',
+                  textAlign: 'center',
+                  border: formaCompensacion === 'LIQUIDACION' ? '1px solid #1d4ed8' : '1px solid #cbd5e1'
+                }}
+                onClick={() => {
+                  setFormaCompensacion('LIQUIDACION');
+                  setErrors({});
+                }}
+              >
+                <FileText size={14} />
+                <span style={{ fontWeight: formaCompensacion === 'LIQUIDACION' ? 700 : 500 }}>En Liquidac.</span>
+              </button>
+            </div>
           </div>
-          <input
-            type="date"
-            className="form-input"
-            value={fechaCompensacion}
-            onChange={(e) => {
-              setFechaCompensacion(e.target.value);
-              setErrors({});
+        )}
+
+        {/* Mensaje descriptivo para Pago en Remuneración */}
+        {estado === 'COMPENSADO' && formaCompensacion === 'REMUNERACION' && (
+          <div
+            style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.75rem',
+              color: '#166534'
             }}
-          />
-          {errors.fechaCompensacion && <span className="form-error">{errors.fechaCompensacion}</span>}
-        </div>
+          >
+            <div style={{ fontWeight: 700, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Banknote size={14} /> Compensado por Pago en Remuneración
+            </div>
+            <p style={{ margin: 0, color: '#374151' }}>
+              Compensación descriptiva: se abona en la planilla de remuneraciones del trabajador. No requiere fecha ni montos.
+            </p>
+          </div>
+        )}
+
+        {/* Mensaje descriptivo para Liquidación de Beneficios */}
+        {estado === 'COMPENSADO' && formaCompensacion === 'LIQUIDACION' && (
+          <div
+            style={{
+              background: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: '8px',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.75rem',
+              color: '#0369a1'
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <FileText size={14} /> Compensado en Liquidación de Beneficios
+            </div>
+            <p style={{ margin: 0, color: '#374151' }}>
+              Compensación descriptiva: se cancela en la liquidación de beneficios sociales por cese. No requiere fecha ni montos.
+            </p>
+          </div>
+        )}
+
+        {/* 3. Fecha de Compensación (solo cuando no es REMUNERACION ni LIQUIDACION) */}
+        {!(estado === 'COMPENSADO' && formaCompensacion !== 'DESCANSO') && (
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <label className="form-label" style={{ marginBottom: 0, fontWeight: 700, fontSize: '0.775rem' }}>
+                3. Fecha de Compensación / Descanso
+              </label>
+              {fechaCompensacion && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setFechaCompensacion('')}
+                  style={{ fontSize: '0.7rem', color: '#64748b', padding: '0 0.3rem', height: '20px' }}
+                >
+                  Limpiar fecha
+                </button>
+              )}
+            </div>
+            <input
+              type="date"
+              className="form-input"
+              value={fechaCompensacion}
+              onChange={(e) => {
+                setFechaCompensacion(e.target.value);
+                setErrors({});
+              }}
+            />
+            {errors.fechaCompensacion && <span className="form-error">{errors.fechaCompensacion}</span>}
+          </div>
+        )}
 
         {/* 4. Observación */}
         <div className="form-group" style={{ marginBottom: 0 }}>

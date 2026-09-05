@@ -87,33 +87,37 @@ export class CompensationValidator {
       return { isValid: false, errors };
     }
 
-    // 2. Fecha de compensación obligatoria y válida
-    if (!dto.fechaCompensacion || dto.fechaCompensacion.trim() === '') {
-      errors.fechaCompensacion = 'Debe indicar la fecha en que será compensado.';
-    } else {
-      const parsedDate = new Date(dto.fechaCompensacion);
-      if (isNaN(parsedDate.getTime())) {
-        errors.fechaCompensacion = 'La fecha de compensación no es válida.';
-      }
-    }
+    const isPaid = dto.formaCompensacion === 'REMUNERACION' || dto.formaCompensacion === 'LIQUIDACION';
 
-    if (Object.keys(errors).length === 0) {
-      // 3. Regla A: El día generado NO puede ser igual a la fecha de compensación
-      if (dto.fechaCompensacion === compensation.fechaGenerada) {
-        errors.fechaCompensacion = `El día generado trabajado (${compensation.fechaGenerada}) no puede ser igual a la fecha de compensación (${dto.fechaCompensacion}). Debe elegir una fecha de descanso diferente.`;
+    // 2. Fecha de compensación obligatoria y válida solo para descanso
+    if (!isPaid) {
+      if (!dto.fechaCompensacion || dto.fechaCompensacion.trim() === '') {
+        errors.fechaCompensacion = 'Debe indicar la fecha en que será compensado.';
+      } else {
+        const parsedDate = new Date(dto.fechaCompensacion);
+        if (isNaN(parsedDate.getTime())) {
+          errors.fechaCompensacion = 'La fecha de compensación no es válida.';
+        }
       }
 
-      // 4. Regla B: NO puede haber 2 fechas de compensación iguales en la lista por trabajador
-      const duplicateComp = existingEmployeeCompensations.find(
-        (c) =>
-          c.id !== compensation.id &&
-          c.empleadoId === compensation.empleadoId &&
-          c.fechaCompensacion === dto.fechaCompensacion &&
-          c.estado !== 'ANULADO'
-      );
+      if (Object.keys(errors).length === 0 && dto.fechaCompensacion) {
+        // 3. Regla A: El día generado NO puede ser igual a la fecha de compensación
+        if (dto.fechaCompensacion === compensation.fechaGenerada) {
+          errors.fechaCompensacion = `El día generado trabajado (${compensation.fechaGenerada}) no puede ser igual a la fecha de compensación (${dto.fechaCompensacion}). Debe elegir una fecha de descanso diferente.`;
+        }
 
-      if (duplicateComp) {
-        errors.fechaCompensacion = `El trabajador ya tiene una compensación asignada para el ${dto.fechaCompensacion} (${duplicateComp.estado}). No se permiten dos compensaciones en la misma fecha para el mismo trabajador.`;
+        // 4. Regla B: NO puede haber 2 fechas de compensación iguales en la lista por trabajador
+        const duplicateComp = existingEmployeeCompensations.find(
+          (c) =>
+            c.id !== compensation.id &&
+            c.empleadoId === compensation.empleadoId &&
+            c.fechaCompensacion === dto.fechaCompensacion &&
+            c.estado !== 'ANULADO'
+        );
+
+        if (duplicateComp) {
+          errors.fechaCompensacion = `El trabajador ya tiene una compensación asignada para el ${dto.fechaCompensacion} (${duplicateComp.estado}). No se permiten dos compensaciones en la misma fecha para el mismo trabajador.`;
+        }
       }
     }
 
@@ -137,6 +141,8 @@ export class CompensationValidator {
     const effectiveCompensacion =
       dto.fechaCompensacion !== undefined ? dto.fechaCompensacion : compensation.fechaCompensacion;
     const effectiveEstado = dto.estado || compensation.estado;
+    const effectiveForma = dto.formaCompensacion || compensation.formaCompensacion || 'DESCANSO';
+    const isPaid = effectiveForma === 'REMUNERACION' || effectiveForma === 'LIQUIDACION';
 
     // 1. Fecha generada no vacía
     if (!effectiveGenerada) {
@@ -156,9 +162,11 @@ export class CompensationValidator {
       }
     }
 
-    // 3. Regla PROGRAMADO / COMPENSADO exige fecha de compensación
-    if ((effectiveEstado === 'PROGRAMADO' || effectiveEstado === 'COMPENSADO') && !effectiveCompensacion) {
-      errors.fechaCompensacion = `Un registro en estado ${effectiveEstado} debe tener una fecha de compensación asignada.`;
+    // 3. Regla PROGRAMADO / COMPENSADO exige fecha de compensación solo para DESCANSO
+    if (effectiveEstado === 'PROGRAMADO' && !effectiveCompensacion) {
+      errors.fechaCompensacion = `Un registro en estado PROGRAMADO debe tener una fecha de compensación asignada.`;
+    } else if (effectiveEstado === 'COMPENSADO' && !effectiveCompensacion && !isPaid) {
+      errors.fechaCompensacion = `Un registro compensado mediante descanso debe tener una fecha asignada.`;
     }
 
     // 4. Regla ANULADO exige motivo

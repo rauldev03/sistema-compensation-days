@@ -1,4 +1,4 @@
-import { Compensacion, CreateCompensacionDto } from '../../types';
+import { Compensacion, CreateCompensacionDto, FormaCompensacion } from '../../types';
 import { db } from '../db';
 
 export interface ICompensationRepository {
@@ -7,7 +7,12 @@ export interface ICompensationRepository {
   getByEmployeeId(empleadoId: string): Compensacion[];
   getByEmployeeAndGeneratedDate(empleadoId: string, fechaGenerada: string): Compensacion | null;
   create(dto: CreateCompensacionDto): Compensacion;
-  scheduleCompensation(id: string, fechaCompensacion: string, observacion?: string): Compensacion | null;
+  scheduleCompensation(
+    id: string,
+    fechaCompensacion?: string | null,
+    observacion?: string,
+    formaCompensacion?: FormaCompensacion
+  ): Compensacion | null;
   markAsCompensated(id: string): Compensacion | null;
   annul(id: string, motivoAnulacion?: string): Compensacion | null;
   update(id: string, updates: Partial<Compensacion>): Compensacion | null;
@@ -44,13 +49,15 @@ export class CompensationRepository implements ICompensationRepository {
   public create(dto: CreateCompensacionDto): Compensacion {
     const list = db.getCompensations();
     const now = new Date().toISOString();
-    const estadoCalculado = dto.estado || (dto.fechaCompensacion ? 'COMPENSADO' : 'PENDIENTE');
+    const formaCalculada = dto.formaCompensacion || 'DESCANSO';
+    const estadoCalculado = dto.estado || (dto.fechaCompensacion || formaCalculada !== 'DESCANSO' ? 'COMPENSADO' : 'PENDIENTE');
     const newComp: Compensacion = {
       id: 'comp-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
       empleadoId: dto.empleadoId,
       fechaGenerada: dto.fechaGenerada,
-      fechaCompensacion: dto.fechaCompensacion || null,
+      fechaCompensacion: formaCalculada !== 'DESCANSO' ? null : (dto.fechaCompensacion || null),
       estado: estadoCalculado,
+      formaCompensacion: formaCalculada,
       observacion: (dto.observacion || '').trim(),
       createdAt: now,
       updatedAt: now
@@ -63,18 +70,23 @@ export class CompensationRepository implements ICompensationRepository {
 
   public scheduleCompensation(
     id: string,
-    fechaCompensacion: string,
-    observacion?: string
+    fechaCompensacion?: string | null,
+    observacion?: string,
+    formaCompensacion?: FormaCompensacion
   ): Compensacion | null {
     const list = db.getCompensations();
     const index = list.findIndex((c) => c.id === id);
     if (index === -1) return null;
 
     const existing = list[index];
+    const forma = formaCompensacion || 'DESCANSO';
+    const isPaid = forma === 'REMUNERACION' || forma === 'LIQUIDACION';
+
     const updated: Compensacion = {
       ...existing,
-      fechaCompensacion: fechaCompensacion.trim(),
-      estado: 'PROGRAMADO',
+      fechaCompensacion: isPaid ? null : (fechaCompensacion ? fechaCompensacion.trim() : null),
+      formaCompensacion: forma,
+      estado: isPaid ? 'COMPENSADO' : 'PROGRAMADO',
       observacion:
         observacion !== undefined ? observacion.trim() : existing.observacion,
       updatedAt: new Date().toISOString()

@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { Empleado, Feriado, Compensacion, AprobadorPermiso } from '../types';
+import { Empleado, Feriado, Compensacion, AprobadorPermiso, FormaCompensacion } from '../types';
 
 // ============================================================================
 // MAPEADORES (CamelCase <-> SnakeCase)
@@ -53,29 +53,51 @@ export const mapHolidayFromDb = (row: any): Feriado => ({
   updatedAt: row.updated_at
 });
 
-export const mapCompensationToDb = (c: Compensacion) => ({
-  id: c.id,
-  empleado_id: c.empleadoId,
-  fecha_generada: c.fechaGenerada,
-  fecha_compensacion: c.fechaCompensacion || null,
-  estado: c.estado,
-  observacion: c.observacion || '',
-  motivo_anulacion: c.motivoAnulacion || null,
-  created_at: c.createdAt,
-  updated_at: c.updatedAt
-});
+export const mapCompensationToDb = (c: Compensacion) => {
+  let obs = c.observacion || '';
+  if (c.formaCompensacion === 'REMUNERACION' && !obs.includes('[Pago en Remuneración]')) {
+    obs = obs ? `[Pago en Remuneración] ${obs}` : '[Pago en Remuneración]';
+  } else if (c.formaCompensacion === 'LIQUIDACION' && !obs.includes('[Liquidación de Beneficios]')) {
+    obs = obs ? `[Liquidación de Beneficios] ${obs}` : '[Liquidación de Beneficios]';
+  }
 
-export const mapCompensationFromDb = (row: any): Compensacion => ({
-  id: row.id,
-  empleadoId: row.empleado_id,
-  fechaGenerada: row.fecha_generada,
-  fechaCompensacion: row.fecha_compensacion || null,
-  estado: row.estado,
-  observacion: row.observacion || '',
-  motivoAnulacion: row.motivo_anulacion || null,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
-});
+  return {
+    id: c.id,
+    empleado_id: c.empleadoId,
+    fecha_generada: c.fechaGenerada,
+    fecha_compensacion: c.fechaCompensacion || null,
+    estado: c.estado,
+    observacion: obs,
+    motivo_anulacion: c.motivoAnulacion || null,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt
+  };
+};
+
+export const mapCompensationFromDb = (row: any): Compensacion => {
+  let forma: FormaCompensacion = 'DESCANSO';
+  const obsUpper = (row.observacion || '').toUpperCase();
+  if (row.forma_compensacion) {
+    forma = row.forma_compensacion;
+  } else if (obsUpper.includes('REMUNERACION') || obsUpper.includes('REMUNERACIÓN')) {
+    forma = 'REMUNERACION';
+  } else if (obsUpper.includes('LIQUIDACION') || obsUpper.includes('LIQUIDACIÓN')) {
+    forma = 'LIQUIDACION';
+  }
+
+  return {
+    id: row.id,
+    empleadoId: row.empleado_id,
+    fechaGenerada: row.fecha_generada,
+    fechaCompensacion: row.fecha_compensacion || null,
+    estado: row.estado,
+    formaCompensacion: forma,
+    observacion: row.observacion || '',
+    motivoAnulacion: row.motivo_anulacion || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+};
 
 export const mapApproverToDb = (a: AprobadorPermiso) => ({
   id: a.id,

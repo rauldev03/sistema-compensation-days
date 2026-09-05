@@ -2,12 +2,15 @@ import { Empleado } from './employee';
 
 export type EstadoCompensacion = 'PENDIENTE' | 'PROGRAMADO' | 'COMPENSADO' | 'ANULADO';
 
+export type FormaCompensacion = 'DESCANSO' | 'REMUNERACION' | 'LIQUIDACION';
+
 export interface Compensacion {
   id: string;
   empleadoId: string;
   fechaGenerada: string; // Formato YYYY-MM-DD (Día trabajado)
-  fechaCompensacion: string | null; // Formato YYYY-MM-DD (Fecha en que se compensará/compensó)
+  fechaCompensacion: string | null; // Formato YYYY-MM-DD (Fecha en que se compensará/compensó, null si es pago o liquidación)
   estado: EstadoCompensacion;
+  formaCompensacion?: FormaCompensacion; // 'DESCANSO' | 'REMUNERACION' | 'LIQUIDACION'
   observacion: string;
   motivoAnulacion?: string | null;
   createdAt: string;
@@ -31,11 +34,13 @@ export interface CreateCompensacionDto {
   fechaGenerada: string;
   fechaCompensacion?: string | null;
   estado?: EstadoCompensacion;
+  formaCompensacion?: FormaCompensacion;
   observacion?: string;
 }
 
 export interface ProgramarCompensacionDto {
-  fechaCompensacion: string;
+  fechaCompensacion?: string | null;
+  formaCompensacion?: FormaCompensacion;
   observacion?: string;
 }
 
@@ -47,6 +52,7 @@ export interface UpdateCompensacionDto {
   fechaGenerada?: string;
   fechaCompensacion?: string | null;
   estado?: EstadoCompensacion;
+  formaCompensacion?: FormaCompensacion;
   observacion?: string;
   motivoAnulacion?: string | null;
 }
