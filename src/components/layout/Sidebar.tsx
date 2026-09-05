@@ -15,7 +15,6 @@ import { useAuth } from '../../context/AuthContext';
 import { dashboardService } from '../../services';
 import { useToast } from '../../context/ToastContext';
 import { DataManagementModal } from '../common/DataManagementModal';
-import { SanFlavioPrayerModal } from './SanFlavioPrayerModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,7 +26,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { success } = useToast();
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
-  const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
 
   const metrics = dashboardService.getMetrics();
 
@@ -117,61 +115,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Sidebar Footer */}
         <div className="sidebar-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {/* Card de San Flavio (Clickable para abrir la Oración) */}
-          <div
-            className="san-flavio-card"
-            onClick={() => setIsPrayerModalOpen(true)}
-            style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.98) 100%)',
-              border: '1px solid rgba(234, 179, 8, 0.4)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.55rem 0.45rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.45)',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            title="Haga clic para rezar a San Flavio (El Padre Sueldo)"
-          >
-            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <img
-                src="/san-flavio.png"
-                alt="San Flavio"
-                style={{
-                  maxHeight: '130px',
-                  width: 'auto',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5))',
-                  transition: 'transform 0.25s ease'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              />
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '0.35rem' }}>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  color: '#fbbf24',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  display: 'block',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.9)'
-                }}
-              >
-                SAN FLAVIO
-              </span>
-              <span style={{ fontSize: '0.625rem', color: '#cbd5e1', fontWeight: 600 }}>
-                Patrono de los Sueldos 🙏
-              </span>
-            </div>
-          </div>
-
           <button
             type="button"
             className="db-reset-button"
@@ -276,12 +219,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <DataManagementModal
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
-      />
-
-      {/* Modal Devocionario: Oración a San Flavio (El Padre Sueldo) */}
-      <SanFlavioPrayerModal
-        isOpen={isPrayerModalOpen}
-        onClose={() => setIsPrayerModalOpen(false)}
       />
     </>
   );
