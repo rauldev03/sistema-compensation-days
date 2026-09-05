@@ -1,6 +1,7 @@
 import React from 'react';
-import { Menu, Calendar } from 'lucide-react';
+import { Menu, Calendar, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { CloudSyncBadge } from './CloudSyncBadge';
 
 interface HeaderProps {
@@ -9,6 +10,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   const { currentTab } = useApp();
+  const { user, logout } = useAuth();
 
   const getPageInfo = () => {
     switch (currentTab) {
@@ -74,8 +76,66 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           <Calendar size={15} style={{ color: '#2563eb' }} />
           <span style={{ textTransform: 'capitalize' }}>{dateFormatted}</span>
         </div>
+
+        {user && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              paddingLeft: '0.5rem',
+              borderLeft: '1px solid #e2e8f0'
+            }}
+          >
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '0.75rem'
+              }}
+              title={`${user.nombre} (${user.email})`}
+            >
+              FM
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="btn-icon"
+              title="Cerrar sesión"
+              style={{
+                color: '#64748b',
+                padding: '0.4rem',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ef4444';
+                e.currentTarget.style.background = '#fef2f2';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#64748b';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
 };
+
 

@@ -7,9 +7,11 @@ import {
   RotateCcw,
   Sparkles,
   Database,
-  Printer
+  Printer,
+  LogOut
 } from 'lucide-react';
 import { useApp, NavigationTab } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { dashboardService } from '../../services';
 import { useToast } from '../../context/ToastContext';
 import { DataManagementModal } from '../common/DataManagementModal';
@@ -22,6 +24,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { currentTab, setCurrentTab, resetDatabaseToDefaults } = useApp();
+  const { user, logout } = useAuth();
   const { success } = useToast();
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
@@ -193,6 +196,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <RotateCcw size={14} />
             <span>Limpiar Toda la Data</span>
           </button>
+
+          {/* User Session Profile & Logout */}
+          {user && (
+            <div
+              style={{
+                marginTop: '0.4rem',
+                padding: '0.65rem 0.75rem',
+                borderRadius: '8px',
+                background: 'rgba(15, 23, 42, 0.75)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    flexShrink: 0
+                  }}
+                >
+                  FM
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user.nombre}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    RRHH Admin
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                title="Cerrar Sesión Segura"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#f87171',
+                  borderRadius: '6px',
+                  padding: '0.35rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#ef4444';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                  e.currentTarget.style.color = '#f87171';
+                }}
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

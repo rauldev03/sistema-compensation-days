@@ -1,4 +1,5 @@
 import React from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppLayout } from './components/layout/AppLayout';
@@ -7,6 +8,7 @@ import { EmployeeListView } from './components/employees/EmployeeListView';
 import { CompensationsMainView } from './components/compensations/CompensationsMainView';
 import { HolidayListView } from './components/holidays/HolidayListView';
 import { PermissionSheetView } from './components/permissionSheet/PermissionSheetView';
+import { LoginView } from './components/auth/LoginView';
 
 const MainViewRouter: React.FC = () => {
   const { currentTab } = useApp();
@@ -27,14 +29,58 @@ const MainViewRouter: React.FC = () => {
   }
 };
 
+const RootGate: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0f172a',
+          color: '#94a3b8',
+          fontFamily: 'inherit'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              border: '3px solid rgba(255,255,255,0.1)',
+              borderTopColor: '#3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }}
+          />
+          <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Verificando credenciales de seguridad...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
+  return (
+    <AppProvider>
+      <AppLayout>
+        <MainViewRouter />
+      </AppLayout>
+    </AppProvider>
+  );
+};
+
 export const App: React.FC = () => {
   return (
     <ToastProvider>
-      <AppProvider>
-        <AppLayout>
-          <MainViewRouter />
-        </AppLayout>
-      </AppProvider>
+      <AuthProvider>
+        <RootGate />
+      </AuthProvider>
     </ToastProvider>
   );
 };
