@@ -24,7 +24,266 @@ interface DataManagementModalProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types for the preview table
+// Types for Employee preview table
+// ─────────────────────────────────────────────────────────────────────────────
+interface EmpPreviewRow {
+  rowNum: number;
+  codigo: string;
+  apellidosNombres: string;
+  documentoIdentidad: string;
+  fechaIngreso: string;
+  tipoTrabajador: string;
+  categoria: string;
+  area: string;
+  cargo: string;
+  estado: 'ACTIVO' | 'CESADO';
+  fechaCese: string | null;
+  isExisting: boolean;
+  status: 'ok' | 'invalid_data' | 'empty';
+  statusMsg: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parse raw text for Employees into preview rows
+// ─────────────────────────────────────────────────────────────────────────────
+const parseEmployeePreview = (
+  text: string,
+  existingEmployees: ReturnType<typeof employeeRepository.getAll>
+): EmpPreviewRow[] => {
+  if (!text.trim()) return [];
+
+  const lines = text.trim().split(/\r?\n/);
+  const rows: EmpPreviewRow[] = [];
+
+  let headerMap: {
+    codigo: number;
+    apellidosNombres: number;
+    documentoIdentidad: number;
+    fechaIngreso: number;
+    tipoTrabajador: number;
+    categoria: number;
+    area: number;
+    cargo: number;
+    estado: number;
+    fechaCese: number;
+  } | null = null;
+
+  let rowCounter = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.startsWith('#')) continue;
+
+    const rawCols = line.includes('\t')
+      ? line.split('\t').map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''))
+      : line.split(/[,;]/).map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
+
+    const lower = line.toLowerCase();
+    const isHeader =
+      lower.includes('apellidos') ||
+      lower.includes('doc ident') ||
+      lower.includes('fecha ingr') ||
+      lower.includes('estado trabajador') ||
+      (lower.includes('codigo') && (lower.includes('area') || lower.includes('área') || lower.includes('tipo') || lower.includes('nombres')));
+
+    if (isHeader) {
+      headerMap = {
+        codigo: -1,
+        apellidosNombres: -1,
+        documentoIdentidad: -1,
+        fechaIngreso: -1,
+        tipoTrabajador: -1,
+        categoria: -1,
+        area: -1,
+        cargo: -1,
+        estado: -1,
+        fechaCese: -1
+      };
+
+      rawCols.forEach((colHeader, hIdx) => {
+        const h = colHeader.toLowerCase().trim();
+        if (!h) return;
+
+        // 1. ESTADO TRABAJADOR / ESTADO (Prioridad ALTA para evitar coincidencia con 'trabajador')
+        if (h.includes('estado') || h.includes('situacion') || h.includes('situación')) {
+          headerMap!.estado = hIdx;
+        }
+        // 2. TIPO TRABAJADOR / CONDICION
+        else if (h.includes('tipo') || h.includes('condicion') || h.includes('condición')) {
+          headerMap!.tipoTrabajador = hIdx;
+        }
+        // 3. FECHA CESE / SALIDA
+        else if (h.includes('cese') || h.includes('salida') || h.includes('retiro')) {
+          headerMap!.fechaCese = hIdx;
+        }
+        // 4. FECHA INGRESO / INGRESO
+        else if (
+          h.includes('ingr') ||
+          h.includes('ingreso') ||
+          h.includes('f.ingr') ||
+          h.includes('f_ingr') ||
+          h.includes('inicio') ||
+          (h.includes('fecha') && !h.includes('cese'))
+        ) {
+          headerMap!.fechaIngreso = hIdx;
+        }
+        // 5. CATEGORIA
+        else if (h.includes('categ') || h.includes('cat.') || h.includes('categoría') || h.includes('categoria')) {
+          headerMap!.categoria = hIdx;
+        }
+        // 6. DOC IDENTIDAD / DNI
+        else if (
+          h.includes('doc') ||
+          h.includes('dni') ||
+          h.includes('ident') ||
+          h.includes('cedula') ||
+          h.includes('ruc') ||
+          h.includes('nro doc') ||
+          h.includes('num doc')
+        ) {
+          headerMap!.documentoIdentidad = hIdx;
+        }
+        // 7. CODIGO
+        else if (h.includes('codigo') || h.includes('código') || h === 'cod' || h.startsWith('cod_')) {
+          headerMap!.codigo = hIdx;
+        }
+        // 8. AREA / DEPARTAMENTO / SEDE
+        else if (
+          h.includes('area') ||
+          h.includes('área') ||
+          h.includes('dpto') ||
+          h.includes('departamento') ||
+          h.includes('seccion') ||
+          h.includes('sección') ||
+          h.includes('sede')
+        ) {
+          headerMap!.area = hIdx;
+        }
+        // 9. CARGO / LABOR / PUESTO
+        else if (
+          h.includes('cargo') ||
+          h.includes('puesto') ||
+          h.includes('labor') ||
+          h.includes('ocupacion') ||
+          h.includes('ocupación') ||
+          h.includes('funcion') ||
+          h.includes('función')
+        ) {
+          headerMap!.cargo = hIdx;
+        }
+        // 10. APELLIDOS Y NOMBRES (Estricto - Columna B)
+        else if (
+          h.includes('apellido') ||
+          h.includes('nombre') ||
+          h === 'trabajador' ||
+          h === 'empleado' ||
+          h.includes('colaborador') ||
+          h.includes('personal') ||
+          h.includes('persona')
+        ) {
+          headerMap!.apellidosNombres = hIdx;
+        }
+      });
+
+      // Si por alguna razón apellidosNombres no fue mapeado por texto, asignar Columna B (1)
+      if (headerMap.apellidosNombres === -1 && rawCols.length >= 2) {
+        headerMap.apellidosNombres = 1;
+      }
+      if (headerMap.codigo === -1 && rawCols.length >= 1) {
+        headerMap.codigo = 0;
+      }
+
+      continue;
+    }
+
+    rowCounter++;
+
+    let codigo = '';
+    let apellidosNombres = '';
+    let documentoIdentidad = '';
+    let fechaIngresoRaw = '';
+    let tipoTrabajador = 'EMPLEADO';
+    let categoria = '';
+    let area = 'GENERAL';
+    let cargo = 'OPERADOR';
+    let rawEstado = 'ACTIVO';
+    let fechaCeseRaw = '';
+
+    if (headerMap && (headerMap.codigo !== -1 || headerMap.apellidosNombres !== -1 || headerMap.documentoIdentidad !== -1)) {
+      codigo = headerMap.codigo !== -1 ? rawCols[headerMap.codigo] || '' : rawCols[0] || '';
+      // Garantizar que apellidosNombres provenga de la columna de nombres (o Col B / índice 1)
+      apellidosNombres = headerMap.apellidosNombres !== -1 ? rawCols[headerMap.apellidosNombres] || '' : (rawCols[1] || '');
+      documentoIdentidad = headerMap.documentoIdentidad !== -1 ? rawCols[headerMap.documentoIdentidad] || codigo : codigo;
+      fechaIngresoRaw = headerMap.fechaIngreso !== -1 ? rawCols[headerMap.fechaIngreso] || '' : '';
+      tipoTrabajador = headerMap.tipoTrabajador !== -1 ? rawCols[headerMap.tipoTrabajador] || 'EMPLEADO' : 'EMPLEADO';
+      categoria = headerMap.categoria !== -1 ? rawCols[headerMap.categoria] || '' : '';
+      area = headerMap.area !== -1 ? rawCols[headerMap.area] || 'GENERAL' : 'GENERAL';
+      cargo = headerMap.cargo !== -1 ? rawCols[headerMap.cargo] || 'OPERADOR' : 'OPERADOR';
+      rawEstado = headerMap.estado !== -1 ? (rawCols[headerMap.estado] || '').toUpperCase() : 'ACTIVO';
+      fechaCeseRaw = headerMap.fechaCese !== -1 ? rawCols[headerMap.fechaCese] || '' : '';
+    } else {
+      // Posicional directo según la plantilla oficial (10 columnas):
+      // Col 0: Codigo | Col 1: APELLIDOS Y NOMBRES | Col 2: Doc Ident | Col 3: Fecha Ingr | Col 4: Tipo Trab | Col 5: Categoria | Col 6: Area | Col 7: Cargo | Col 8: ESTADO | Col 9: FECHA CESE
+      codigo = rawCols[0] || '';
+      apellidosNombres = rawCols[1] || ''; // COLUMNA B SIEMPRE
+      documentoIdentidad = rawCols[2] || codigo;
+      fechaIngresoRaw = rawCols[3] || '';
+      tipoTrabajador = rawCols[4] || 'EMPLEADO';
+      categoria = rawCols[5] || '';
+      area = rawCols[6] || 'GENERAL';
+      cargo = rawCols[7] || 'OPERADOR';
+      rawEstado = (rawCols[8] || '').toUpperCase();
+      fechaCeseRaw = rawCols[9] || '';
+    }
+
+    if (!codigo && documentoIdentidad) codigo = documentoIdentidad;
+    if (!documentoIdentidad && codigo) documentoIdentidad = codigo;
+
+    if (!codigo && !apellidosNombres) continue;
+
+    const normTipo = tipoTrabajador.toUpperCase().includes('OBRER') ? 'OBRERO' : 'EMPLEADO';
+    const fechaIngreso = parseDateString(fechaIngresoRaw) || new Date().toISOString().split('T')[0];
+    const estado: 'ACTIVO' | 'CESADO' = rawEstado.includes('CESAD') ? 'CESADO' : 'ACTIVO';
+    const fechaCese = estado === 'CESADO' && fechaCeseRaw ? parseDateString(fechaCeseRaw) : null;
+
+    const isExisting = existingEmployees.some(
+      (e) => (codigo && e.codigo.toUpperCase() === codigo.trim().toUpperCase()) || (documentoIdentidad && e.documentoIdentidad === documentoIdentidad.trim())
+    );
+
+    let status: 'ok' | 'invalid_data' | 'empty' = 'ok';
+    let statusMsg = isExisting ? 'Actualizará datos' : 'Nuevo';
+
+    if (!codigo) {
+      status = 'invalid_data';
+      statusMsg = 'Sin Código/DNI';
+    } else if (!apellidosNombres || apellidosNombres.trim().length < 2) {
+      status = 'invalid_data';
+      statusMsg = 'Sin Nombres';
+    }
+
+    rows.push({
+      rowNum: rowCounter,
+      codigo,
+      apellidosNombres,
+      documentoIdentidad,
+      fechaIngreso,
+      tipoTrabajador: normTipo,
+      categoria,
+      area,
+      cargo,
+      estado,
+      fechaCese,
+      isExisting,
+      status,
+      statusMsg
+    });
+  }
+
+  return rows;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types for Compensation preview table
 // ─────────────────────────────────────────────────────────────────────────────
 type PreviewStatus = 'ok' | 'duplicate' | 'not_found' | 'invalid_date' | 'empty';
 
@@ -44,7 +303,7 @@ interface CompPreviewRow {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Parse the raw textarea text into preview rows (live, no side effects)
+// Parse the raw textarea text into compensation preview rows
 // ─────────────────────────────────────────────────────────────────────────────
 const parseCompensationPreview = (
   text: string,
@@ -55,7 +314,6 @@ const parseCompensationPreview = (
 
   const lines = text.trim().split(/\r?\n/);
   const rows: CompPreviewRow[] = [];
-  // Track pairs seen in this batch to catch intra-batch duplicates
   const seenPairs = new Set<string>();
 
   let rowNum = 0;
@@ -74,7 +332,6 @@ const parseCompensationPreview = (
 
     rowNum++;
 
-    // Split columns (tab-separated from Excel or comma/semicolon)
     const raw = line.includes('\t') ? line.split('\t') : line.split(/[,;]/);
     const cols = raw.map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
 
@@ -88,12 +345,6 @@ const parseCompensationPreview = (
     let observacion = '';
 
     if (cols.length >= 4) {
-      // Estructura Oficial de 5 columnas:
-      // Col 0: DNI
-      // Col 1: Apellidos y Nombres
-      // Col 2: Fecha (Fecha generada)
-      // Col 3: ESTADO (COMPENSADO, PENDIENTE, etc.)
-      // Col 4: Fecha Compensada (si existe)
       rawDni = cols[0];
       nombrePasted = cols[1];
       fechaGeneradaRaw = cols[2];
@@ -125,7 +376,6 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Empty DNI
     if (!rawDni) {
       rows.push({
         rowNum,
@@ -142,7 +392,6 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Normalizar Estado y Forma de Compensación
     let estado: EstadoCompensacion = 'PENDIENTE';
     let formaCompensacion: FormaCompensacion = 'DESCANSO';
 
@@ -186,7 +435,6 @@ const parseCompensationPreview = (
       formaCompensacion = 'DESCANSO';
     }
 
-    // Parse fecha trabajada (fecha generada)
     const fechaGenerada = parseDateString(fechaGeneradaRaw);
     if (!fechaGenerada) {
       rows.push({
@@ -206,7 +454,6 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Parse fecha compensada (si fue proporcionada y no es pago en remuneración o liquidación)
     let fechaCompensada: string | null = null;
     const isPaidModality = formaCompensacion === 'REMUNERACION' || formaCompensacion === 'LIQUIDACION';
 
@@ -231,13 +478,11 @@ const parseCompensationPreview = (
       }
     }
 
-    // Buscar empleado por DNI o código
     const idTerm = rawDni.trim().toUpperCase();
     let emp = employees.find(
       (e) => e.codigo.toUpperCase() === idTerm || e.documentoIdentidad === idTerm
     );
 
-    // Fallback: buscar por nombre si el DNI difiere ligeramente
     if (!emp && nombrePasted) {
       const cleanName = nombrePasted.trim().toUpperCase();
       emp = employees.find((e) => e.apellidosNombres.toUpperCase() === cleanName);
@@ -261,7 +506,6 @@ const parseCompensationPreview = (
       return;
     }
 
-    // Validar duplicado en base de datos
     const dbDuplicate = existingCompensations.find(
       (c) =>
         c.empleadoId === emp.id &&
@@ -269,7 +513,6 @@ const parseCompensationPreview = (
         c.estado !== 'ANULADO'
     );
 
-    // Validar duplicado en el mismo lote pegado
     const pairKey = `${emp.id}__${fechaGenerada}`;
     const batchDuplicate = seenPairs.has(pairKey);
 
@@ -389,13 +632,28 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 42935726\tVALDEZ ZACARIAS JULIO ARMANDO\t07/05/2023\tCOMPENSADO\t04/04/2026
 42935726\tVALDEZ ZACARIAS JULIO ARMANDO\t29/06/2023\tPENDIENTE\t`;
 
-  // ── Live preview (memoized — recalculates only when text changes) ─────────
+  // ── Live preview for Employees (memoized — recalculates only when text changes) ─
+  const previewEmployeeRows = useMemo(() => {
+    if (!employeeText.trim() || activeTab !== 'employees') return [];
+    const employees = employeeRepository.getAll();
+    return parseEmployeePreview(employeeText, employees);
+  }, [employeeText, activeTab, employeeResults]);
+
+  const previewEmployeeStats = useMemo(() => {
+    const ok = previewEmployeeRows.filter((r) => r.status === 'ok').length;
+    const existing = previewEmployeeRows.filter((r) => r.isExisting).length;
+    const newItems = previewEmployeeRows.filter((r) => !r.isExisting && r.status === 'ok').length;
+    const invalid = previewEmployeeRows.filter((r) => r.status !== 'ok').length;
+    return { ok, existing, newItems, invalid, total: previewEmployeeRows.length };
+  }, [previewEmployeeRows]);
+
+  // ── Live preview for Compensations (memoized) ─────────────────────────────
   const previewRows = useMemo(() => {
     if (!compensationText.trim() || activeTab !== 'compensations') return [];
     const employees = employeeRepository.getAll();
     const existing = compensationRepository.getAll();
     return parseCompensationPreview(compensationText, employees, existing);
-  }, [compensationText, activeTab, compensationResults]); // re-run after import too
+  }, [compensationText, activeTab, compensationResults]);
 
   const previewStats = useMemo(() => {
     const ok = previewRows.filter((r) => r.status === 'ok').length;
@@ -412,188 +670,41 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
       return;
     }
 
-    const lines = employeeText.trim().split(/\r?\n/);
-    const parsed: CreateEmpleadoDto[] = [];
-    const parseErrors: string[] = [];
+    const preview = parseEmployeePreview(employeeText, employeeRepository.getAll());
+    const validRows = preview.filter((r) => r.status === 'ok');
 
-    // Mapeo dinámico de índices de columnas si se detecta fila de encabezado
-    let headerMap: {
-      codigo?: number;
-      apellidosNombres?: number;
-      documentoIdentidad?: number;
-      fechaIngreso?: number;
-      tipoTrabajador?: number;
-      categoria?: number;
-      area?: number;
-      cargo?: number;
-      estado?: number;
-      fechaCese?: number;
-    } | null = null;
-
-    for (let idx = 0; idx < lines.length; idx++) {
-      const line = lines[idx];
-      if (!line.trim() || line.startsWith('#')) continue;
-
-      const isTab = line.includes('\t');
-      const cols = isTab
-        ? line.split('\t').map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''))
-        : line.split(/[,;]/).map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
-
-      const lower = line.toLowerCase();
-      const isHeaderLine =
-        lower.includes('apellidos') ||
-        lower.includes('doc ident') ||
-        lower.includes('fecha ingr') ||
-        lower.includes('estado trabajador') ||
-        (lower.includes('codigo') && (lower.includes('area') || lower.includes('área') || lower.includes('tipo') || lower.includes('nombres')));
-
-      if (isHeaderLine) {
-        // Detectar índices de columnas automáticamente por encabezado
-        headerMap = {};
-        cols.forEach((colHeader, hIdx) => {
-          const h = colHeader.toLowerCase().trim();
-          if (h.includes('codigo') || h.includes('código') || h === 'cod') {
-            headerMap!.codigo = hIdx;
-          } else if (h.includes('apellido') || h.includes('nombre') || h.includes('trabajador') || h.includes('empleado')) {
-            headerMap!.apellidosNombres = hIdx;
-          } else if (h.includes('doc') || h.includes('dni') || h.includes('ident')) {
-            headerMap!.documentoIdentidad = hIdx;
-          } else if (h.includes('ingr') || h.includes('f.ingr') || h.includes('ingreso')) {
-            headerMap!.fechaIngreso = hIdx;
-          } else if (h.includes('tipo') || h.includes('condicion') || h.includes('condición')) {
-            headerMap!.tipoTrabajador = hIdx;
-          } else if (h.includes('categ') || h.includes('cat.') || h.includes('categoría') || h.includes('categoria')) {
-            headerMap!.categoria = hIdx;
-          } else if (h.includes('area') || h.includes('área') || h.includes('dpto') || h.includes('departamento')) {
-            headerMap!.area = hIdx;
-          } else if (h.includes('cargo') || h.includes('puesto') || h.includes('ocupacion') || h.includes('ocupación')) {
-            headerMap!.cargo = hIdx;
-          } else if (h.includes('estado') || h.includes('situacion') || h.includes('situación')) {
-            headerMap!.estado = hIdx;
-          } else if (h.includes('cese') || h.includes('f.cese')) {
-            headerMap!.fechaCese = hIdx;
-          }
-        });
-        continue;
-      }
-
-      if (cols.length < 3) {
-        parseErrors.push(`Fila #${idx + 1}: Faltan columnas mínimas requeridas (Código, Nombres, Documento).`);
-        continue;
-      }
-
-      let codigo = '';
-      let apellidosNombres = '';
-      let documentoIdentidad = '';
-      let fechaIngresoRaw = '';
-      let tipoTrabajador = 'EMPLEADOS AGRÍCOLAS';
-      let categoria = '';
-      let area = 'GENERAL';
-      let cargo = 'OPERADOR';
-      let rawEstado = 'ACTIVO';
-      let fechaCeseRaw = '';
-
-      if (headerMap && headerMap.codigo !== undefined && headerMap.apellidosNombres !== undefined) {
-        // Usar mapeo inteligente detectado del encabezado
-        codigo = cols[headerMap.codigo] || '';
-        apellidosNombres = cols[headerMap.apellidosNombres] || '';
-        documentoIdentidad = headerMap.documentoIdentidad !== undefined ? cols[headerMap.documentoIdentidad] || codigo : codigo;
-        fechaIngresoRaw = headerMap.fechaIngreso !== undefined ? cols[headerMap.fechaIngreso] : '';
-        tipoTrabajador = headerMap.tipoTrabajador !== undefined ? cols[headerMap.tipoTrabajador] || 'EMPLEADOS AGRÍCOLAS' : 'EMPLEADOS AGRÍCOLAS';
-        categoria = headerMap.categoria !== undefined ? cols[headerMap.categoria] || '' : '';
-        area = headerMap.area !== undefined ? cols[headerMap.area] || 'GENERAL' : 'GENERAL';
-        cargo = headerMap.cargo !== undefined ? cols[headerMap.cargo] || 'OPERADOR' : 'OPERADOR';
-        rawEstado = headerMap.estado !== undefined ? (cols[headerMap.estado] || '').toUpperCase() : 'ACTIVO';
-        fechaCeseRaw = headerMap.fechaCese !== undefined ? cols[headerMap.fechaCese] || '' : '';
-      } else if (cols.length >= 10) {
-        // Formato estándar de 10 columnas:
-        // 0: Codigo | 1: Apellidos y Nombres | 2: Doc Ident | 3: Fecha Ingr | 4: Tipo Trab | 5: Categoria | 6: Area | 7: Cargo | 8: Estado | 9: Fecha Cese
-        codigo = cols[0] || '';
-        apellidosNombres = cols[1] || '';
-        documentoIdentidad = cols[2] || cols[0];
-        fechaIngresoRaw = cols[3];
-        tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
-        categoria = cols[5] || '';
-        area = cols[6] || 'GENERAL';
-        cargo = cols[7] || 'OPERADOR';
-        rawEstado = (cols[8] || '').toUpperCase();
-        fechaCeseRaw = cols[9] || '';
-      } else if (cols.length === 9) {
-        const col8Upper = (cols[8] || '').toUpperCase();
-        const col7Upper = (cols[7] || '').toUpperCase();
-
-        if (col7Upper.includes('ACTIVO') || col7Upper.includes('CESAD')) {
-          // Formato heredado 9 columnas (sin categoria):
-          // 0: Codigo, 1: Nombres, 2: Doc, 3: Fecha Ingr, 4: Tipo Trab, 5: Area, 6: Cargo, 7: Estado, 8: Fecha Cese
-          codigo = cols[0] || '';
-          apellidosNombres = cols[1] || '';
-          documentoIdentidad = cols[2] || cols[0];
-          fechaIngresoRaw = cols[3];
-          tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
-          categoria = '';
-          area = cols[5] || 'GENERAL';
-          cargo = cols[6] || 'OPERADOR';
-          rawEstado = col7Upper;
-          fechaCeseRaw = cols[8] || '';
-        } else {
-          // Formato 9 columnas con Categoria y sin Fecha Cese:
-          // 0: Codigo, 1: Nombres, 2: Doc, 3: Fecha Ingr, 4: Tipo Trab, 5: Categoria, 6: Area, 7: Cargo, 8: Estado
-          codigo = cols[0] || '';
-          apellidosNombres = cols[1] || '';
-          documentoIdentidad = cols[2] || cols[0];
-          fechaIngresoRaw = cols[3];
-          tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
-          categoria = cols[5] || '';
-          area = cols[6] || 'GENERAL';
-          cargo = cols[7] || 'OPERADOR';
-          rawEstado = col8Upper;
-          fechaCeseRaw = '';
-        }
-      } else {
-        // Fallback para menos columnas
-        codigo = cols[0] || '';
-        apellidosNombres = cols[1] || '';
-        documentoIdentidad = cols[2] || cols[0];
-        fechaIngresoRaw = cols[3] || '';
-        tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
-        categoria = '';
-        area = cols[5] || 'GENERAL';
-        cargo = cols[6] || 'OPERADOR';
-        rawEstado = (cols[7] || '').toUpperCase();
-      }
-
-      const fechaIngreso = parseDateString(fechaIngresoRaw) || new Date().toISOString().split('T')[0];
-      const estado: 'ACTIVO' | 'CESADO' = rawEstado.includes('CESAD') ? 'CESADO' : 'ACTIVO';
-      const fechaCese = estado === 'CESADO' && fechaCeseRaw ? parseDateString(fechaCeseRaw) : null;
-
-      parsed.push({
-        codigo,
-        apellidosNombres,
-        documentoIdentidad,
-        fechaIngreso,
-        fechaCese,
-        tipoTrabajador,
-        categoria,
-        area,
-        cargo,
-        estado
-      });
-    }
-
-    if (parsed.length === 0) {
-      error('No se pudo procesar ninguna fila válida.');
+    if (validRows.length === 0) {
+      error('No se detectaron registros válidos de empleados para procesar.');
       return;
     }
 
-    const res = employeeService.bulkCreate(parsed);
+    const dtos: CreateEmpleadoDto[] = validRows.map((r) => ({
+      codigo: r.codigo,
+      apellidosNombres: r.apellidosNombres,
+      documentoIdentidad: r.documentoIdentidad,
+      fechaIngreso: r.fechaIngreso,
+      fechaCese: r.fechaCese,
+      tipoTrabajador: r.tipoTrabajador,
+      categoria: r.categoria,
+      area: r.area,
+      cargo: r.cargo,
+      estado: r.estado
+    }));
+
+    const res = employeeService.bulkCreate(dtos);
     setEmployeeResults({
-      imported: res.importedCount,
-      errors: [...parseErrors, ...res.errors]
+      imported: res.importedCount + (res.updatedCount || 0),
+      errors: res.errors
     });
 
-    if (res.importedCount > 0) {
-      success(`Se importaron ${res.importedCount} empleado(s) correctamente.`);
+    if (res.importedCount > 0 || (res.updatedCount && res.updatedCount > 0)) {
+      const parts: string[] = [];
+      if (res.importedCount > 0) parts.push(`${res.importedCount} nuevo(s)`);
+      if (res.updatedCount && res.updatedCount > 0) parts.push(`${res.updatedCount} actualizado(s) con nombres reales`);
+      success(`Carga de empleados exitosa: ${parts.join(', ')}.`);
       triggerRefresh();
+    } else if (res.errors.length > 0) {
+      error(`Error al procesar: ${res.errors.slice(0, 2).join(' | ')}`);
     }
   };
 
@@ -994,8 +1105,82 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
               />
             </div>
 
+            {/* Live Preview Table for Employees */}
+            {previewEmployeeRows.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Eye size={16} style={{ color: '#ea580c' }} />
+                    <strong style={{ fontSize: '0.85rem', color: '#0f172a' }}>
+                      Previsualización de Mapeo ({previewEmployeeRows.length} filas detectadas):
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem' }}>
+                    {previewEmployeeStats.existing > 0 && (
+                      <span style={{ color: '#2563eb', fontWeight: 700 }}>
+                        🔄 {previewEmployeeStats.existing} a actualizar
+                      </span>
+                    )}
+                    {previewEmployeeStats.newItems > 0 && (
+                      <span style={{ color: '#16a34a', fontWeight: 700 }}>
+                        ➕ {previewEmployeeStats.newItems} nuevos
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}>
+                  <table style={{ width: '100%', fontSize: '0.73rem', borderCollapse: 'collapse' }}>
+                    <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 1, borderBottom: '1px solid #cbd5e1' }}>
+                      <tr>
+                        <th style={{ padding: '5px 8px', textAlign: 'center', width: '35px' }}>#</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>Código (Col A)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left', color: '#ea580c', fontWeight: 800 }}>APELLIDOS Y NOMBRES (Col B)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>DNI (Col C)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>F. Ingreso (Col D)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>Tipo / Categoría (Col E, F)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>Área (Col G)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'left' }}>Cargo (Col H)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'center' }}>Estado (Col I)</th>
+                        <th style={{ padding: '5px 8px', textAlign: 'center' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewEmployeeRows.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                          <td style={{ padding: '4px 8px', textAlign: 'center', color: '#64748b' }}>{row.rowNum}</td>
+                          <td style={{ padding: '4px 8px', fontWeight: 700, fontFamily: 'monospace' }}>{row.codigo}</td>
+                          <td style={{ padding: '4px 8px', fontWeight: 800, color: '#0f172a' }}>{row.apellidosNombres}</td>
+                          <td style={{ padding: '4px 8px', color: '#475569' }}>{row.documentoIdentidad}</td>
+                          <td style={{ padding: '4px 8px', color: '#475569' }}>{formatDateDisplay(row.fechaIngreso)}</td>
+                          <td style={{ padding: '4px 8px', color: '#475569' }}>{row.tipoTrabajador}{row.categoria ? ` (${row.categoria})` : ''}</td>
+                          <td style={{ padding: '4px 8px', color: '#475569' }}>{row.area}</td>
+                          <td style={{ padding: '4px 8px', color: '#475569' }}>{row.cargo}</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                            <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 700, background: row.estado === 'ACTIVO' ? '#dcfce7' : '#fee2e2', color: row.estado === 'ACTIVO' ? '#15803d' : '#b91c1c' }}>
+                              {row.estado}
+                            </span>
+                          </td>
+                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: row.isExisting ? '#2563eb' : '#16a34a' }}>
+                              {row.isExisting ? '🔄 Actualizar' : '➕ Nuevo'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-              <Button variant="primary" onClick={handleImportEmployees} icon={<Upload size={16} />}>
+              <Button
+                variant="primary"
+                onClick={handleImportEmployees}
+                icon={<Upload size={16} />}
+                disabled={previewEmployeeRows.length > 0 && previewEmployeeStats.ok === 0}
+              >
                 Procesar y Cargar Empleados
               </Button>
             </div>

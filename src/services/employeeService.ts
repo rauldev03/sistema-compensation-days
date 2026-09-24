@@ -181,31 +181,58 @@ export class EmployeeService {
   public bulkCreate(employees: CreateEmpleadoDto[]): {
     success: boolean;
     importedCount: number;
+    updatedCount: number;
     errors: string[];
   } {
     const existing = [...employeeRepository.getAll()];
     const errors: string[] = [];
     let importedCount = 0;
+    let updatedCount = 0;
 
     for (let i = 0; i < employees.length; i++) {
       const dto = employees[i];
       const rowNum = i + 1;
 
-      const validation = EmployeeValidator.validate(dto, existing);
-      if (!validation.isValid) {
-        const errorMsg = Object.values(validation.errors).join(', ');
-        errors.push(`Fila #${rowNum} (${dto.codigo || 'Sin código'}): ${errorMsg}`);
-        continue;
-      }
+      const normCode = dto.codigo ? dto.codigo.trim().toUpperCase() : '';
+      const normDoc = dto.documentoIdentidad ? dto.documentoIdentidad.trim() : '';
 
-      const created = employeeRepository.create(dto);
-      existing.unshift(created);
-      importedCount++;
+      // Check if employee already exists in repository by codigo or documentoIdentidad
+      const existingIndex = existing.findIndex(
+        (e) => (normCode && e.codigo.toUpperCase() === normCode) || (normDoc && e.documentoIdentidad === normDoc)
+      );
+
+      if (existingIndex !== -1) {
+        const currentEmp = existing[existingIndex];
+        const validation = EmployeeValidator.validate(dto, existing, currentEmp.id);
+        if (!validation.isValid) {
+          const errorMsg = Object.values(validation.errors).join(', ');
+          errors.push(`Fila #${rowNum} (${dto.codigo || 'Sin código'}): ${errorMsg}`);
+          continue;
+        }
+
+        const updated = employeeRepository.update(currentEmp.id, dto);
+        if (updated) {
+          existing[existingIndex] = updated;
+          updatedCount++;
+        }
+      } else {
+        const validation = EmployeeValidator.validate(dto, existing);
+        if (!validation.isValid) {
+          const errorMsg = Object.values(validation.errors).join(', ');
+          errors.push(`Fila #${rowNum} (${dto.codigo || 'Sin código'}): ${errorMsg}`);
+          continue;
+        }
+
+        const created = employeeRepository.create(dto);
+        existing.unshift(created);
+        importedCount++;
+      }
     }
 
     return {
-      success: importedCount > 0,
+      success: (importedCount + updatedCount) > 0,
       importedCount,
+      updatedCount,
       errors
     };
   }
