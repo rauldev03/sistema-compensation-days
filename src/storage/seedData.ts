@@ -144,6 +144,18 @@ export const INITIAL_APPROVERS: AprobadorPermiso[] = [
     cargo: 'JEFE DE RECURSOS HUMANOS',
     area: 'RECURSOS HUMANOS',
     documentoIdentidad: '41209845',
+    firmaUrl: '/firma-jefe-rrhh.png',
+    estado: 'ACTIVO',
+    createdAt: '2026-01-01T08:00:00.000Z',
+    updatedAt: '2026-01-01T08:00:00.000Z'
+  },
+  {
+    id: 'app-007',
+    nombreCompleto: 'Miguel A. O. Bocanegra',
+    cargo: 'JEFE DE RECURSOS HUMANOS',
+    area: 'RECURSOS HUMANOS',
+    documentoIdentidad: '42819234',
+    firmaUrl: '/firma-miguel-bocanegra.png',
     estado: 'ACTIVO',
     createdAt: '2026-01-01T08:00:00.000Z',
     updatedAt: '2026-01-01T08:00:00.000Z'

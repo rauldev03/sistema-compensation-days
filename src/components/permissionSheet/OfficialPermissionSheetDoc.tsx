@@ -48,295 +48,264 @@ interface OfficialPermissionSheetDocProps {
   className?: string;
   isPrintable?: boolean;
   showRrhhSignature?: boolean;
+  rrhhSignatureUrl?: string;
 }
 
 export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProps> = ({
   data,
   className = '',
   isPrintable = false,
-  showRrhhSignature = true
+  showRrhhSignature = false,
+  rrhhSignatureUrl = ''
 }) => {
   return (
     <div
       className={`official-permission-doc ${isPrintable ? 'official-permission-doc-printable' : ''} ${className}`}
     >
-      <table className="doc-table">
+      {/* 1. ENCABEZADO INSTITUCIONAL */}
+      <div className="doc-header-block">
+        <table className="doc-header-table">
+          <tbody>
+            <tr>
+              {/* LOGO CHAVIN Y DIRECCIÓN */}
+              <td className="doc-hdr-left">
+                <div className="doc-hdr-logo-container">
+                  <img
+                    src="/logo-chavin.png"
+                    alt="Chavín"
+                    className="chavin-hdr-logo"
+                  />
+                  <div className="chavin-hdr-address">
+                    Car. Carretera Casma - Huaraz<br />
+                    Nro. S/N Monte Grande (Sector Sechín Alto)<br />
+                    Ancash, Casma, Buena Vista Alta, Perú.
+                  </div>
+                </div>
+              </td>
+
+              {/* TÍTULO CENTRAL */}
+              <td className="doc-hdr-center">
+                <div className="doc-hdr-company">
+                  AGRICOLA Y GANADERA CHAVIN DE HUANTAR S.A.
+                </div>
+                <div className="doc-hdr-title">
+                  HOJA DE PERMISO DEL PERSONAL
+                </div>
+              </td>
+
+              {/* METADATA OFICIAL */}
+              <td className="doc-hdr-right">
+                <div className="doc-meta-row">
+                  <span className="doc-meta-lbl">Código:</span> AGCH-R-RH-770-02
+                </div>
+                <div className="doc-meta-row">
+                  <span className="doc-meta-lbl">Versión:</span> 02
+                </div>
+                <div className="doc-meta-row doc-meta-row-last">
+                  <span className="doc-meta-lbl">Fecha Aprob.:</span> 01/08/2025
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* 2. CUERPO PRINCIPAL DEL FORMATO (TABLA INSTITUCIONAL FIJA DE 9 COLUMNAS) */}
+      <table className="doc-main-table">
+        <colgroup>
+          <col style={{ width: '9.75%' }} />
+          <col style={{ width: '9.75%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+          <col style={{ width: '11.5%' }} />
+        </colgroup>
         <tbody>
-          {/* 1. HEADER INSTITUCIONAL */}
+          {/* FILA 1: FECHA */}
           <tr>
-            {/* LOGO CHAVIN */}
-            <td className="doc-header-logo-cell" style={{ width: '22%', verticalAlign: 'middle' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div className="chavin-logo-title">
-                  <span>Chav</span>
-                  <span className="chavin-dot">í</span>
-                  <span>n</span>
-                </div>
-                <div className="chavin-logo-subtitle">
-                  Car. Carretera Casma - Huaraz<br />
-                  Nro. S/N Monte Grande (Sector Sechín Alto)<br />
-                  Ancash, Casma, Buena Vista Alta, Perú.
-                </div>
-              </div>
+            <td colSpan={2} className="doc-lbl-cell">
+              FECHA:
             </td>
-
-            {/* TITULO DE LA HOJA */}
-            <td style={{ width: '54%', textAlign: 'center', verticalAlign: 'middle', padding: '6px' }}>
-              <div className="doc-title-main">
-                AGRICOLA Y GANADERA CHAVIN DE HUANTAR S.A.
-              </div>
-              <div className="doc-title-docname">
-                HOJA DE PERMISO DEL PERSONAL
-              </div>
-            </td>
-
-            {/* METADATA OFICIAL */}
-            <td style={{ width: '24%', padding: 0 }}>
-              <table className="doc-meta-table">
-                <tbody>
-                  <tr>
-                    <td><strong>Código:</strong> AGCH-R-RH-770-02</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Versión:</strong> 02</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Fecha Aprob.:</strong> 01/08/2025</td>
-                  </tr>
-                </tbody>
-              </table>
+            <td colSpan={7} className="doc-val-cell">
+              {formatDateDisplay(data.fechaEmision) || '-'}
             </td>
           </tr>
 
-          {/* 2. FECHA DE EMISION */}
+          {/* FILA 2 & 3: SEDE */}
           <tr>
-            <td colSpan={3} style={{ padding: '4px 8px', background: '#fafafa' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '8px' }}>
-                <span className="doc-label" style={{ minWidth: '60px' }}>FECHA:</span>
-                <span className="doc-value">{formatDateDisplay(data.fechaEmision)}</span>
-              </div>
+            <td rowSpan={2} colSpan={2} className="doc-lbl-cell">
+              SEDE:
+            </td>
+            <td className="doc-sede-hdr">
+              FUNDO IV<br />PALOS
+            </td>
+            <td className="doc-sede-hdr">
+              PLANTA IV<br />PALOS
+            </td>
+            <td className="doc-sede-hdr">
+              PLANTA<br />SECHIN<br />FRESCO
+            </td>
+            <td className="doc-sede-hdr">
+              PLANTA<br />SECHIN<br />CONGELADO
+            </td>
+            <td className="doc-sede-hdr">
+              OFICINA<br />CASMA
+            </td>
+            <td className="doc-sede-hdr">
+              OFICINA<br />SECHIN
+            </td>
+            <td className="doc-sede-hdr">
+              OFICINA LIMA
+            </td>
+          </tr>
+          <tr>
+            {SEDES_LIST.map((s) => (
+              <td key={s} className="doc-sede-check-cell">
+                {data.sede === s ? 'X' : ''}
+              </td>
+            ))}
+          </tr>
+
+          {/* FILA 4, 5, 6: DATOS DEL TRABAJADOR Y CONDICION LABORAL */}
+          <tr>
+            <td className="doc-col-hdr">
+              TIPO<br />DOCUMENTO
+            </td>
+            <td className="doc-col-hdr">
+              NUMERO<br />DOCUMENTO
+            </td>
+            <td colSpan={5} className="doc-col-hdr">
+              APELLIDOS Y NOMBRES
+            </td>
+            <td colSpan={2} className="doc-col-hdr">
+              CONDICION LABORAL
+            </td>
+          </tr>
+          <tr>
+            <td className="doc-val-cell-center" style={{ height: '17px' }}>
+              {data.tipoDocumento || 'D.N.I.'}
+            </td>
+            <td className="doc-val-cell-center">
+              {data.numeroDocumento || '-'}
+            </td>
+            <td rowSpan={2} colSpan={5} className="doc-worker-name-cell">
+              {data.apellidosNombres || '-'}
+            </td>
+            <td colSpan={2} className="doc-condicion-item-cell">
+              OBRERO {data.condicionLaboral === 'OBRERO' ? ' [ X ]' : ' [   ]'}
+            </td>
+          </tr>
+          <tr>
+            <td className="doc-val-cell-center doc-sub-label" style={{ height: '17px' }}>
+              {data.tipoDocumento ? '' : 'OBRERO'}
+            </td>
+            <td className="doc-val-cell-center doc-sub-label">
+              {data.numeroDocumento ? '' : 'SECHIN'}
+            </td>
+            <td colSpan={2} className="doc-condicion-item-cell">
+              EMPLEADO {data.condicionLaboral === 'EMPLEADO' ? ' [ X ]' : ' [   ]'}
             </td>
           </tr>
 
-          {/* 3. SEDES */}
+          {/* FILA 7: LABOR Y RESPONSABLE INMEDIATO */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '80px', fontWeight: 800, fontSize: '9px', background: '#fafafa' }}>
-                      SEDE:
-                    </td>
-                    {SEDES_LIST.map((s) => (
-                      <td key={s} style={{ fontSize: '7.5px', fontWeight: 800, padding: '3px 2px' }}>
-                        {s}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td style={{ background: '#fafafa' }}></td>
-                    {SEDES_LIST.map((s) => (
-                      <td key={s} style={{ height: '18px', textAlign: 'center', fontSize: '11px', fontWeight: 900 }}>
-                        {data.sede === s ? 'X' : ''}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+            <td colSpan={2} className="doc-lbl-cell">
+              LABOR:
+            </td>
+            <td colSpan={3} className="doc-val-cell">
+              {data.labor || '-'}
+            </td>
+            <td colSpan={2} className="doc-lbl-cell" style={{ fontSize: '7.5px' }}>
+              RESPONSABLE INMEDIATO:
+            </td>
+            <td colSpan={2} className="doc-val-cell">
+              {data.responsableInmediato || '-'}
             </td>
           </tr>
 
-          {/* 4. DATOS DEL TRABAJADOR */}
+          {/* FILA 8: TIEMPO SOLICITADO */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#fafafa', textAlign: 'center' }}>
-                    <td style={{ width: '15%', fontSize: '8px', fontWeight: 800 }}>TIPO DOCUMENTO</td>
-                    <td style={{ width: '18%', fontSize: '8px', fontWeight: 800 }}>NUMERO DOCUMENTO</td>
-                    <td style={{ width: '47%', fontSize: '8px', fontWeight: 800 }}>APELLIDOS Y NOMBRES</td>
-                    <td style={{ width: '20%', fontSize: '8px', fontWeight: 800 }}>CONDICION LABORAL</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ textAlign: 'center', fontWeight: 700, fontSize: '9.5px', height: '22px' }}>
-                      {data.tipoDocumento || 'D.N.I.'}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: 700, fontSize: '10px' }}>
-                      {data.numeroDocumento || '-'}
-                    </td>
-                    <td style={{ paddingLeft: '8px', fontWeight: 800, fontSize: '10px' }}>
-                      {data.apellidosNombres || '-'}
-                    </td>
-                    <td style={{ padding: 0 }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                        <tbody>
-                          <tr>
-                            <td style={{ border: 'none', borderBottom: '1px solid #000', fontSize: '7.5px', fontWeight: 800, padding: '2px' }}>
-                              OBRERO {data.condicionLaboral === 'OBRERO' ? ' [ X ]' : ' [   ]'}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style={{ border: 'none', fontSize: '7.5px', fontWeight: 800, padding: '2px' }}>
-                              EMPLEADO {data.condicionLaboral === 'EMPLEADO' ? ' [ X ]' : ' [   ]'}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <td colSpan={2} className="doc-lbl-cell">
+              TIEMPO SOLICITADO:
+            </td>
+            <td colSpan={7} className="doc-val-cell" style={{ textTransform: 'uppercase' }}>
+              {data.tiempoSolicitado || '1 DÍA (JORNADA COMPLETA)'}
             </td>
           </tr>
 
-          {/* 5. LABOR Y RESPONSABLE INMEDIATO */}
+          {/* FILA 9 & 10: MOTIVOS DEL PERMISO */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '15%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      LABOR:
-                    </td>
-                    <td style={{ width: '35%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.labor || '-'}
-                    </td>
-                    <td style={{ width: '22%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      RESPONSABLE INMEDIATO:
-                    </td>
-                    <td style={{ width: '28%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.responsableInmediato || '-'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <td rowSpan={2} colSpan={2} className="doc-lbl-cell">
+              PERMISO POR MOTIVOS DE:
+            </td>
+            <td className="doc-motivo-hdr">SALUD</td>
+            <td className="doc-motivo-hdr">PERSONAL</td>
+            <td className="doc-motivo-hdr">CAPACITACION</td>
+            <td className="doc-motivo-hdr">ESTUDIOS</td>
+            <td colSpan={3} className="doc-motivo-hdr">OTROS (Especifique)</td>
+          </tr>
+          <tr>
+            <td className="doc-motivo-check-cell">{data.motivo === 'SALUD' ? 'X' : ''}</td>
+            <td className="doc-motivo-check-cell">{data.motivo === 'PERSONAL' ? 'X' : ''}</td>
+            <td className="doc-motivo-check-cell">{data.motivo === 'CAPACITACION' ? 'X' : ''}</td>
+            <td className="doc-motivo-check-cell">{data.motivo === 'ESTUDIOS' ? 'X' : ''}</td>
+            <td colSpan={3} className="doc-motivo-otros-cell">
+              {data.motivo === 'OTROS'
+                ? `[ X ] ${data.motivoOtroEspecifique || 'COMPENSACIÓN DE DÍA TRABAJADO'}`
+                : '[   ]'}
             </td>
           </tr>
 
-          {/* 6. TIEMPO SOLICITADO */}
+          {/* FILA 11: APROBADO POR Y CARGO */}
           <tr>
-            <td colSpan={3} style={{ padding: '4px 8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="doc-label" style={{ minWidth: '130px' }}>TIEMPO SOLICITADO:</span>
-                <span className="doc-value" style={{ textTransform: 'uppercase' }}>{data.tiempoSolicitado || '-'}</span>
-              </div>
+            <td colSpan={2} className="doc-lbl-cell">
+              APROBADO POR:
+            </td>
+            <td colSpan={3} className="doc-val-cell">
+              {data.aprobadoPor || '-'}
+            </td>
+            <td colSpan={2} className="doc-lbl-cell">
+              CARGO:
+            </td>
+            <td colSpan={2} className="doc-val-cell">
+              {data.cargoAprobador || '-'}
             </td>
           </tr>
 
-          {/* 7. MOTIVOS DEL PERMISO */}
+          {/* FILA 12: INICIA Y FINALIZA */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                <thead>
-                  <tr style={{ background: '#fafafa' }}>
-                    <td style={{ width: '140px', fontWeight: 800, fontSize: '8.5px' }}>
-                      PERMISO POR MOTIVOS DE:
-                    </td>
-                    <td style={{ width: '15%', fontSize: '8px', fontWeight: 800 }}>SALUD</td>
-                    <td style={{ width: '15%', fontSize: '8px', fontWeight: 800 }}>PERSONAL</td>
-                    <td style={{ width: '15%', fontSize: '8px', fontWeight: 800 }}>CAPACITACION</td>
-                    <td style={{ width: '15%', fontSize: '8px', fontWeight: 800 }}>ESTUDIOS</td>
-                    <td style={{ fontSize: '8px', fontWeight: 800 }}>OTROS (Especifique)</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ background: '#fafafa' }}></td>
-                    <td style={{ height: '18px', fontWeight: 900, fontSize: '11px' }}>
-                      {data.motivo === 'SALUD' ? 'X' : ''}
-                    </td>
-                    <td style={{ fontWeight: 900, fontSize: '11px' }}>
-                      {data.motivo === 'PERSONAL' ? 'X' : ''}
-                    </td>
-                    <td style={{ fontWeight: 900, fontSize: '11px' }}>
-                      {data.motivo === 'CAPACITACION' ? 'X' : ''}
-                    </td>
-                    <td style={{ fontWeight: 900, fontSize: '11px' }}>
-                      {data.motivo === 'ESTUDIOS' ? 'X' : ''}
-                    </td>
-                    <td style={{ fontWeight: 700, fontSize: '9px', textAlign: 'left', paddingLeft: '6px' }}>
-                      {data.motivo === 'OTROS' ? `[ X ] ${data.motivoOtroEspecifique || 'COMPENSACIÓN'}` : '[   ]'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <td colSpan={2} className="doc-lbl-cell">
+              INICIA:
+            </td>
+            <td colSpan={3} className="doc-val-cell">
+              {data.inicia ? formatDateDisplay(data.inicia) : '-'}
+            </td>
+            <td colSpan={2} className="doc-lbl-cell">
+              FINALIZA:
+            </td>
+            <td colSpan={2} className="doc-val-cell">
+              {data.finaliza ? formatDateDisplay(data.finaliza) : '-'}
             </td>
           </tr>
 
-          {/* 8. APROBADO POR Y CARGO */}
+          {/* FILA 13: DIA DE RETORNO */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '15%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      APROBADO POR:
-                    </td>
-                    <td style={{ width: '45%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.aprobadoPor || '-'}
-                    </td>
-                    <td style={{ width: '15%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      CARGO:
-                    </td>
-                    <td style={{ width: '25%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.cargoAprobador || '-'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <td colSpan={2} className="doc-lbl-cell">
+              DIA DE RETORNO:
+            </td>
+            <td colSpan={7} className="doc-val-cell">
+              {data.diaRetorno ? formatDateDisplay(data.diaRetorno) : '-'}
             </td>
           </tr>
 
-          {/* 9. INICIA Y FINALIZA */}
+          {/* FILA 14: OBSERVACIONES */}
           <tr>
-            <td colSpan={3} style={{ padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ width: '15%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      INICIA:
-                    </td>
-                    <td style={{ width: '35%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.inicia ? formatDateDisplay(data.inicia) : '-'}
-                    </td>
-                    <td style={{ width: '15%', fontWeight: 800, fontSize: '8.5px', background: '#fafafa' }}>
-                      FINALIZA:
-                    </td>
-                    <td style={{ width: '35%', fontWeight: 700, fontSize: '9.5px' }}>
-                      {data.finaliza ? formatDateDisplay(data.finaliza) : '-'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-
-          {/* 10. DIA DE RETORNO */}
-          <tr>
-            <td colSpan={3} style={{ padding: '4px 8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="doc-label" style={{ minWidth: '130px' }}>DIA DE RETORNO:</span>
-                <span className="doc-value">{data.diaRetorno ? formatDateDisplay(data.diaRetorno) : '-'}</span>
-              </div>
-            </td>
-          </tr>
-
-          {/* 11. OBSERVACIONES */}
-          <tr>
-            <td colSpan={3} style={{ padding: '4px 8px', minHeight: '65px', verticalAlign: 'top' }}>
-              <div className="doc-label" style={{ marginBottom: '2px' }}>OBSERVACIONES:</div>
-              <div
-                style={{
-                  fontSize: '9.5px',
-                  fontWeight: 600,
-                  color: '#000000',
-                  lineHeight: 1.35,
-                  minHeight: '42px',
-                  whiteSpace: 'pre-wrap'
-                }}
-              >
+            <td colSpan={9} className="doc-observaciones-cell">
+              <div className="doc-observaciones-title">OBSERVACIONES:</div>
+              <div className="doc-observaciones-content">
                 {data.observaciones || '-'}
               </div>
             </td>
@@ -344,43 +313,49 @@ export const OfficialPermissionSheetDoc: React.FC<OfficialPermissionSheetDocProp
         </tbody>
       </table>
 
-      {/* 12. FIRMAS INFERIORES */}
-      <div className="doc-signatures-container">
-        <div className="doc-signature-box">
-          <div className="doc-signature-line" />
-          <div className="doc-signature-label">TRABAJADOR</div>
+      {/* 3. RECUADROS DE FIRMAS (5 RECUADROS EXACTOS) */}
+      <div className="doc-signatures-grid">
+        {/* 1. TRABAJADOR */}
+        <div className="doc-sig-box">
+          <div className="doc-sig-content"></div>
+          <div className="doc-sig-line"></div>
+          <div className="doc-sig-label">TRABAJADOR</div>
         </div>
 
-        <div className="doc-signature-box">
-          <div className="doc-signature-line" />
-          <div className="doc-signature-label">JEFE DE AREA</div>
+        {/* 2. JEFE DE AREA */}
+        <div className="doc-sig-box">
+          <div className="doc-sig-content"></div>
+          <div className="doc-sig-line"></div>
+          <div className="doc-sig-label">JEFE DE AREA</div>
         </div>
 
-        <div className="doc-signature-box doc-signature-box-rrhh">
-          {showRrhhSignature ? (
-            <div className="doc-signature-img-wrapper">
+        {/* 3. JEFE DE RRHH */}
+        <div className="doc-sig-box doc-sig-box-rrhh">
+          <div className="doc-sig-content">
+            {showRrhhSignature && rrhhSignatureUrl ? (
               <img
-                src="/firma-jefe-rrhh.png"
-                alt="Firma Jefe de RRHH"
-                className="doc-signature-img"
+                src={rrhhSignatureUrl}
+                alt="Firma RRHH"
+                className="doc-sig-rrhh-img"
               />
-            </div>
-          ) : (
-            <>
-              <div className="doc-signature-line" />
-              <div className="doc-signature-label">JEFE DE RRHH</div>
-            </>
-          )}
+            ) : null}
+          </div>
+          <div className="doc-sig-line"></div>
+          <div className="doc-sig-label">JEFE DE RRHH</div>
         </div>
 
-        <div className="doc-signature-box">
-          <div className="doc-signature-line" />
-          <div className="doc-signature-label">GERENCIA DE OPER.</div>
+        {/* 4. GERENCIA DE OPER. */}
+        <div className="doc-sig-box">
+          <div className="doc-sig-content"></div>
+          <div className="doc-sig-line"></div>
+          <div className="doc-sig-label">GERENCIA DE OPER.</div>
         </div>
 
-        <div className="doc-signature-box">
-          <div className="doc-signature-line" />
-          <div className="doc-signature-label">GERENCIA GENERAL</div>
+        {/* 5. GERENCIA GENERAL */}
+        <div className="doc-sig-box">
+          <div className="doc-sig-content"></div>
+          <div className="doc-sig-line"></div>
+          <div className="doc-sig-label">GERENCIA GENERAL</div>
         </div>
       </div>
     </div>

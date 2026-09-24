@@ -28,6 +28,7 @@ export class ApproverRepository implements IApproverRepository {
       cargo: dto.cargo.trim().toUpperCase(),
       area: dto.area.trim().toUpperCase(),
       documentoIdentidad: (dto.documentoIdentidad || '').trim(),
+      firmaUrl: dto.firmaUrl || undefined,
       estado: 'ACTIVO',
       createdAt: now,
       updatedAt: now
@@ -50,6 +51,7 @@ export class ApproverRepository implements IApproverRepository {
       cargo: dto.cargo !== undefined ? dto.cargo.trim().toUpperCase() : existing.cargo,
       area: dto.area !== undefined ? dto.area.trim().toUpperCase() : existing.area,
       documentoIdentidad: dto.documentoIdentidad !== undefined ? dto.documentoIdentidad.trim() : existing.documentoIdentidad,
+      firmaUrl: dto.firmaUrl !== undefined ? dto.firmaUrl : existing.firmaUrl,
       estado: dto.estado !== undefined ? dto.estado : existing.estado,
       updatedAt: new Date().toISOString()
     };

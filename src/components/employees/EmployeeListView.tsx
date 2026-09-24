@@ -34,6 +34,7 @@ export const EmployeeListView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedArea, setSelectedArea] = useState('TODOS');
   const [selectedTipo, setSelectedTipo] = useState('TODOS');
+  const [selectedCategoria, setSelectedCategoria] = useState('TODOS');
   const [selectedEstado, setSelectedEstado] = useState('TODOS');
 
   // Pagination State
@@ -62,21 +63,23 @@ export const EmployeeListView: React.FC = () => {
   // Data
   const distinctAreas = useMemo(() => employeeService.getDistinctAreas(), [refreshKey]);
   const distinctWorkerTypes = useMemo(() => employeeService.getDistinctWorkerTypes(), [refreshKey]);
+  const distinctCategories = useMemo(() => employeeService.getDistinctCategories(), [refreshKey]);
 
   const employees = useMemo(() => {
     const filters: FilterOptions = {
       search: searchTerm,
       area: selectedArea,
       tipoTrabajador: selectedTipo,
+      categoria: selectedCategoria,
       estado: selectedEstado
     };
     return employeeService.getAll(filters);
-  }, [searchTerm, selectedArea, selectedTipo, selectedEstado, refreshKey]);
+  }, [searchTerm, selectedArea, selectedTipo, selectedCategoria, selectedEstado, refreshKey]);
 
   // Reset pagination when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedArea, selectedTipo, selectedEstado]);
+  }, [searchTerm, selectedArea, selectedTipo, selectedCategoria, selectedEstado]);
 
   // Paginated employees calculation
   const totalEmployees = employees.length;
@@ -226,6 +229,22 @@ export const EmployeeListView: React.FC = () => {
           ))}
         </select>
 
+        {/* Filter by Category */}
+        {distinctCategories.length > 0 && (
+          <select
+            className="filter-select"
+            value={selectedCategoria}
+            onChange={(e) => setSelectedCategoria(e.target.value)}
+          >
+            <option value="TODOS">Todas las Categorías</option>
+            {distinctCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Filter by Status */}
         <select
           className="filter-select"
@@ -246,7 +265,7 @@ export const EmployeeListView: React.FC = () => {
               <tr>
                 <th>Código</th>
                 <th>Apellidos y nombres</th>
-                <th>Tipo Trabajador</th>
+                <th>Tipo / Categoría</th>
                 <th>Área</th>
                 <th>Cargo</th>
                 <th>Fecha Ingreso</th>
@@ -288,18 +307,32 @@ export const EmployeeListView: React.FC = () => {
                       </strong>
                     </td>
                     <td>
-                      <span
-                        style={{
-                          background: '#f1f5f9',
-                          padding: '0.15rem 0.4rem',
-                          borderRadius: '4px',
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          color: '#475569'
-                        }}
-                      >
-                        {emp.tipoTrabajador}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'flex-start' }}>
+                        <span
+                          style={{
+                            background: '#f1f5f9',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: '#475569'
+                          }}
+                        >
+                          {emp.tipoTrabajador}
+                        </span>
+                        {emp.categoria && (
+                          <span
+                            style={{
+                              fontSize: '0.675rem',
+                              color: '#64748b',
+                              fontWeight: 500
+                            }}
+                            title={`Categoría: ${emp.categoria}`}
+                          >
+                            {emp.categoria}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span

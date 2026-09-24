@@ -19,7 +19,7 @@ export class EmployeeService {
     if (filters.search && filters.search.trim() !== '') {
       const words = filters.search.toLowerCase().trim().split(/\s+/);
       list = list.filter((e) => {
-        const haystack = `${e.codigo} ${e.documentoIdentidad} ${e.apellidosNombres} ${e.area} ${e.cargo}`.toLowerCase();
+        const haystack = `${e.codigo} ${e.documentoIdentidad} ${e.apellidosNombres} ${e.categoria || ''} ${e.area} ${e.cargo}`.toLowerCase();
         return words.every((w) => haystack.includes(w));
       });
     }
@@ -33,6 +33,13 @@ export class EmployeeService {
     if (filters.tipoTrabajador && filters.tipoTrabajador !== 'TODOS') {
       list = list.filter(
         (e) => e.tipoTrabajador.toUpperCase() === filters.tipoTrabajador?.toUpperCase()
+      );
+    }
+
+    // Filtro por Categoría
+    if (filters.categoria && filters.categoria !== 'TODOS') {
+      list = list.filter(
+        (e) => (e.categoria || '').toUpperCase() === filters.categoria?.toUpperCase()
       );
     }
 
@@ -58,7 +65,7 @@ export class EmployeeService {
 
     const words = term.toLowerCase().trim().split(/\s+/);
     return employeeRepository.getAll().filter((e) => {
-      const haystack = `${e.codigo} ${e.documentoIdentidad} ${e.apellidosNombres} ${e.area} ${e.cargo}`.toLowerCase();
+      const haystack = `${e.codigo} ${e.documentoIdentidad} ${e.apellidosNombres} ${e.categoria || ''} ${e.area} ${e.cargo}`.toLowerCase();
       return words.every((w) => haystack.includes(w));
     });
   }
@@ -161,6 +168,14 @@ export class EmployeeService {
       if (e.tipoTrabajador) types.add(e.tipoTrabajador);
     });
     return Array.from(types).sort();
+  }
+
+  public getDistinctCategories(): string[] {
+    const categories = new Set<string>();
+    employeeRepository.getAll().forEach((e) => {
+      if (e.categoria) categories.add(e.categoria);
+    });
+    return Array.from(categories).sort();
   }
 
   public bulkCreate(employees: CreateEmpleadoDto[]): {

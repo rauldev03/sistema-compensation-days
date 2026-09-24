@@ -11,6 +11,7 @@ export interface Empleado {
   fechaCese?: string | null; // Formato YYYY-MM-DD (opcional si es CESADO)
   fechasIngreso?: string[]; // Historial de todas las fechas de ingreso
   tipoTrabajador: string;
+  categoria?: string;
   area: string;
   cargo: string;
   estado: EstadoEmpleado;

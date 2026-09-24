@@ -9,6 +9,7 @@ export type FilterOptions = {
   search?: string;
   area?: string;
   tipoTrabajador?: string;
+  categoria?: string;
   estado?: string;
   year?: number;
   month?: number;

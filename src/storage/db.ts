@@ -155,6 +155,16 @@ class DatabaseDriver {
         try {
           await dexieDb.aprobadores.bulkPut(INITIAL_APPROVERS);
         } catch (_) {}
+      } else {
+        // Asegurar que los aprobadores esenciales como Miguel A. O. Bocanegra existan
+        for (const initApp of INITIAL_APPROVERS) {
+          if (!rawApps.some(a => a.id === initApp.id || a.nombreCompleto.toUpperCase() === initApp.nombreCompleto.toUpperCase())) {
+            rawApps.push(initApp);
+            try {
+              await dexieDb.aprobadores.put(initApp);
+            } catch (_) {}
+          }
+        }
       }
       this.approversCache = rawApps;
 

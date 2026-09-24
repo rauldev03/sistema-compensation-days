@@ -96,12 +96,31 @@ async function runTests() {
     documentoIdentidad: '77665544',
     fechaIngreso: '2026-02-01',
     tipoTrabajador: 'EMPLEADO',
+    categoria: 'STAFF AGRÍCOLA',
     area: 'ADMINISTRACIÓN',
     cargo: 'ASISTENTE ADMINISTRATIVO',
     estado: 'ACTIVO'
   });
   assert.strictEqual(createEmpRes.success, true, 'Debe crear empleado con datos válidos');
-  console.log('   - Creación de nuevo empleado: OK');
+  assert.strictEqual(createEmpRes.data.categoria, 'STAFF AGRÍCOLA', 'Debe guardar la categoría correctamente');
+  console.log('   - Creación de nuevo empleado con categoría: OK');
+
+  // 2.4.1 Carga masiva de empleados con y sin categoría
+  const bulkRes = employeeService.bulkCreate([
+    {
+      codigo: 'EMP-090',
+      apellidosNombres: 'MENDOZA SOTO CARLOS',
+      documentoIdentidad: '11223344',
+      fechaIngreso: '2026-03-01',
+      tipoTrabajador: 'OBRERO',
+      categoria: 'OBREROS AGRÍCOLAS',
+      area: 'CAMPO',
+      cargo: 'COSECHADOR',
+      estado: 'ACTIVO'
+    }
+  ]);
+  assert.strictEqual(bulkRes.importedCount, 1, 'Debe importar empleado en carga masiva con categoría');
+  console.log('   - Carga masiva de empleados con columna categoría: OK');
 
   // 2.5 Regla: Creación de compensación y protección contra eliminación física con historial
   const regDummyComp = compensationService.registerPendingDay({

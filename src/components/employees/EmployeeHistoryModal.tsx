@@ -70,7 +70,7 @@ export const EmployeeHistoryModal: React.FC<EmployeeHistoryModalProps> = ({
           <div>
             <div>Historial de Compensaciones</div>
             <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>
-              {employee.codigo} - {employee.apellidosNombres} ({employee.area} / {employee.cargo})
+              {employee.codigo} - {employee.apellidosNombres} ({employee.tipoTrabajador}{employee.categoria ? ` · ${employee.categoria}` : ''} · {employee.area} / {employee.cargo})
             </div>
           </div>
         </div>

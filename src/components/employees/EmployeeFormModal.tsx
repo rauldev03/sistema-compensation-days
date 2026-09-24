@@ -29,6 +29,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [fechaIngreso, setFechaIngreso] = useState('');
   const [fechaCese, setFechaCese] = useState('');
   const [tipoTrabajador, setTipoTrabajador] = useState('EMPLEADOS AGRÍCOLAS');
+  const [categoria, setCategoria] = useState('');
   const [area, setArea] = useState('CALIDAD');
   const [cargo, setCargo] = useState('');
   const [estado, setEstado] = useState<'ACTIVO' | 'CESADO'>('ACTIVO');
@@ -43,6 +44,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setFechaIngreso(employeeToEdit.fechaIngreso);
       setFechaCese(employeeToEdit.fechaCese || '');
       setTipoTrabajador(employeeToEdit.tipoTrabajador);
+      setCategoria(employeeToEdit.categoria || '');
       setArea(employeeToEdit.area);
       setCargo(employeeToEdit.cargo);
       setEstado(employeeToEdit.estado);
@@ -54,6 +56,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setFechaIngreso(new Date().toISOString().split('T')[0]);
       setFechaCese('');
       setTipoTrabajador('EMPLEADOS AGRÍCOLAS');
+      setCategoria('');
       setArea('CALIDAD');
       setCargo('');
       setEstado('ACTIVO');
@@ -73,6 +76,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       fechaIngreso,
       fechaCese: estado === 'CESADO' && fechaCese ? fechaCese : null,
       tipoTrabajador: tipoTrabajador.trim().toUpperCase(),
+      categoria: categoria.trim().toUpperCase(),
       area: area.trim().toUpperCase(),
       cargo: cargo.trim().toUpperCase(),
       estado
@@ -210,6 +214,14 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         </div>
 
         <div className="form-grid-2">
+          <Input
+            label="Categoría"
+            placeholder="Ej. EMPLEADOS AGRÍCOLAS o STAFF"
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            helper="Categoría laboral de la empresa (opcional)"
+          />
+
           <Select
             label="Área de Trabajo"
             required
@@ -218,7 +230,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             options={areaOptions}
             error={errors.area}
           />
+        </div>
 
+        <div className="form-grid-2">
           <Input
             label="Cargo"
             required
@@ -227,9 +241,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             onChange={(e) => setCargo(e.target.value)}
             error={errors.cargo}
           />
-        </div>
 
-        <div className="form-grid-2">
           <Select
             label="Estado"
             required
@@ -243,8 +255,10 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
                 : undefined
             }
           />
+        </div>
 
-          {estado === 'CESADO' && (
+        {estado === 'CESADO' && (
+          <div style={{ marginTop: '0.5rem' }}>
             <Input
               type="date"
               label="Fecha de Cese"
@@ -253,8 +267,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               error={errors.fechaCese}
               helper="Fecha en la que el trabajador fue cesado"
             />
-          )}
-        </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

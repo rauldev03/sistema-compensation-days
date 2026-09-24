@@ -380,8 +380,8 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
   const [showPreview, setShowPreview] = useState(true);
 
   // ── Sample data ──────────────────────────────────────────────────────────
-  const sampleEmployeeExcel = `10000001\tPEREZ ROJAS JUAN CARLOS\t10000001\t15/01/2026\tADMINISTRACIÓN\tCONTABILIDAD\tASISTENTE CONTABLE\tACTIVO\t
-10000002\tGARCIA LOPEZ MARIA ELENA\t10000002\t01/02/2026\tOPERACIONES\tPLANTA\tOPERARIO DE PRODUCCION\tACTIVO\t`;
+  const sampleEmployeeExcel = `10000001\tPEREZ ROJAS JUAN CARLOS\t10000001\t15/01/2026\tEMPLEADO\tEMPLEADOS AGRÍCOLAS\tCONTABILIDAD\tASISTENTE CONTABLE\tACTIVO\t
+10000002\tGARCIA LOPEZ MARIA ELENA\t10000002\t01/02/2026\tOBRERO\tOBREROS AGRÍCOLAS\tPLANTA\tOPERARIO DE PRODUCCION\tACTIVO\t`;
 
   const sampleCompensationExcel = `DNI\tApellidos y Nombres\tFecha\tESTADO\tFecha Compensada
 46356926\tISLA SANTAMARIA RODRIGO RAYMUNDO\t26/04/2026\tCOMPENSADO\t18/05/2026
@@ -416,42 +416,155 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     const parsed: CreateEmpleadoDto[] = [];
     const parseErrors: string[] = [];
 
-    lines.forEach((line, idx) => {
-      if (!line.trim() || line.startsWith('#')) return;
+    // Mapeo dinámico de índices de columnas si se detecta fila de encabezado
+    let headerMap: {
+      codigo?: number;
+      apellidosNombres?: number;
+      documentoIdentidad?: number;
+      fechaIngreso?: number;
+      tipoTrabajador?: number;
+      categoria?: number;
+      area?: number;
+      cargo?: number;
+      estado?: number;
+      fechaCese?: number;
+    } | null = null;
 
-      // Skip header line if user copied column names
-      const lower = line.toLowerCase();
-      if (
-        lower.includes('apellidos') ||
-        lower.includes('doc ident') ||
-        lower.includes('fecha ingr') ||
-        lower.includes('estado trabajador') ||
-        (lower.includes('codigo') && lower.includes('area'))
-      ) {
-        return;
-      }
+    for (let idx = 0; idx < lines.length; idx++) {
+      const line = lines[idx];
+      if (!line.trim() || line.startsWith('#')) continue;
 
-      // Split by tab (if copied from Excel) or comma/semicolon
       const isTab = line.includes('\t');
       const cols = isTab
         ? line.split('\t').map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''))
         : line.split(/[,;]/).map((c) => c.trim().replace(/^['\"`]+|['\"`]+$/g, ''));
 
-      if (cols.length < 3) {
-        parseErrors.push(`Fila #${idx + 1}: Faltan columnas mínimas requeridas (Código, Nombres, Documento).`);
-        return;
+      const lower = line.toLowerCase();
+      const isHeaderLine =
+        lower.includes('apellidos') ||
+        lower.includes('doc ident') ||
+        lower.includes('fecha ingr') ||
+        lower.includes('estado trabajador') ||
+        (lower.includes('codigo') && (lower.includes('area') || lower.includes('área') || lower.includes('tipo') || lower.includes('nombres')));
+
+      if (isHeaderLine) {
+        // Detectar índices de columnas automáticamente por encabezado
+        headerMap = {};
+        cols.forEach((colHeader, hIdx) => {
+          const h = colHeader.toLowerCase().trim();
+          if (h.includes('codigo') || h.includes('código') || h === 'cod') {
+            headerMap!.codigo = hIdx;
+          } else if (h.includes('apellido') || h.includes('nombre') || h.includes('trabajador') || h.includes('empleado')) {
+            headerMap!.apellidosNombres = hIdx;
+          } else if (h.includes('doc') || h.includes('dni') || h.includes('ident')) {
+            headerMap!.documentoIdentidad = hIdx;
+          } else if (h.includes('ingr') || h.includes('f.ingr') || h.includes('ingreso')) {
+            headerMap!.fechaIngreso = hIdx;
+          } else if (h.includes('tipo') || h.includes('condicion') || h.includes('condición')) {
+            headerMap!.tipoTrabajador = hIdx;
+          } else if (h.includes('categ') || h.includes('cat.') || h.includes('categoría') || h.includes('categoria')) {
+            headerMap!.categoria = hIdx;
+          } else if (h.includes('area') || h.includes('área') || h.includes('dpto') || h.includes('departamento')) {
+            headerMap!.area = hIdx;
+          } else if (h.includes('cargo') || h.includes('puesto') || h.includes('ocupacion') || h.includes('ocupación')) {
+            headerMap!.cargo = hIdx;
+          } else if (h.includes('estado') || h.includes('situacion') || h.includes('situación')) {
+            headerMap!.estado = hIdx;
+          } else if (h.includes('cese') || h.includes('f.cese')) {
+            headerMap!.fechaCese = hIdx;
+          }
+        });
+        continue;
       }
 
-      const codigo = cols[0] || '';
-      const apellidosNombres = cols[1] || '';
-      const documentoIdentidad = cols[2] || cols[0];
-      const fechaIngreso = parseDateString(cols[3]) || new Date().toISOString().split('T')[0];
-      const tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
-      const area = cols[5] || 'GENERAL';
-      const cargo = cols[6] || 'OPERADOR';
-      const rawEstado = (cols[7] || '').toUpperCase();
+      if (cols.length < 3) {
+        parseErrors.push(`Fila #${idx + 1}: Faltan columnas mínimas requeridas (Código, Nombres, Documento).`);
+        continue;
+      }
+
+      let codigo = '';
+      let apellidosNombres = '';
+      let documentoIdentidad = '';
+      let fechaIngresoRaw = '';
+      let tipoTrabajador = 'EMPLEADOS AGRÍCOLAS';
+      let categoria = '';
+      let area = 'GENERAL';
+      let cargo = 'OPERADOR';
+      let rawEstado = 'ACTIVO';
+      let fechaCeseRaw = '';
+
+      if (headerMap && headerMap.codigo !== undefined && headerMap.apellidosNombres !== undefined) {
+        // Usar mapeo inteligente detectado del encabezado
+        codigo = cols[headerMap.codigo] || '';
+        apellidosNombres = cols[headerMap.apellidosNombres] || '';
+        documentoIdentidad = headerMap.documentoIdentidad !== undefined ? cols[headerMap.documentoIdentidad] || codigo : codigo;
+        fechaIngresoRaw = headerMap.fechaIngreso !== undefined ? cols[headerMap.fechaIngreso] : '';
+        tipoTrabajador = headerMap.tipoTrabajador !== undefined ? cols[headerMap.tipoTrabajador] || 'EMPLEADOS AGRÍCOLAS' : 'EMPLEADOS AGRÍCOLAS';
+        categoria = headerMap.categoria !== undefined ? cols[headerMap.categoria] || '' : '';
+        area = headerMap.area !== undefined ? cols[headerMap.area] || 'GENERAL' : 'GENERAL';
+        cargo = headerMap.cargo !== undefined ? cols[headerMap.cargo] || 'OPERADOR' : 'OPERADOR';
+        rawEstado = headerMap.estado !== undefined ? (cols[headerMap.estado] || '').toUpperCase() : 'ACTIVO';
+        fechaCeseRaw = headerMap.fechaCese !== undefined ? cols[headerMap.fechaCese] || '' : '';
+      } else if (cols.length >= 10) {
+        // Formato estándar de 10 columnas:
+        // 0: Codigo | 1: Apellidos y Nombres | 2: Doc Ident | 3: Fecha Ingr | 4: Tipo Trab | 5: Categoria | 6: Area | 7: Cargo | 8: Estado | 9: Fecha Cese
+        codigo = cols[0] || '';
+        apellidosNombres = cols[1] || '';
+        documentoIdentidad = cols[2] || cols[0];
+        fechaIngresoRaw = cols[3];
+        tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
+        categoria = cols[5] || '';
+        area = cols[6] || 'GENERAL';
+        cargo = cols[7] || 'OPERADOR';
+        rawEstado = (cols[8] || '').toUpperCase();
+        fechaCeseRaw = cols[9] || '';
+      } else if (cols.length === 9) {
+        const col8Upper = (cols[8] || '').toUpperCase();
+        const col7Upper = (cols[7] || '').toUpperCase();
+
+        if (col7Upper.includes('ACTIVO') || col7Upper.includes('CESAD')) {
+          // Formato heredado 9 columnas (sin categoria):
+          // 0: Codigo, 1: Nombres, 2: Doc, 3: Fecha Ingr, 4: Tipo Trab, 5: Area, 6: Cargo, 7: Estado, 8: Fecha Cese
+          codigo = cols[0] || '';
+          apellidosNombres = cols[1] || '';
+          documentoIdentidad = cols[2] || cols[0];
+          fechaIngresoRaw = cols[3];
+          tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
+          categoria = '';
+          area = cols[5] || 'GENERAL';
+          cargo = cols[6] || 'OPERADOR';
+          rawEstado = col7Upper;
+          fechaCeseRaw = cols[8] || '';
+        } else {
+          // Formato 9 columnas con Categoria y sin Fecha Cese:
+          // 0: Codigo, 1: Nombres, 2: Doc, 3: Fecha Ingr, 4: Tipo Trab, 5: Categoria, 6: Area, 7: Cargo, 8: Estado
+          codigo = cols[0] || '';
+          apellidosNombres = cols[1] || '';
+          documentoIdentidad = cols[2] || cols[0];
+          fechaIngresoRaw = cols[3];
+          tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
+          categoria = cols[5] || '';
+          area = cols[6] || 'GENERAL';
+          cargo = cols[7] || 'OPERADOR';
+          rawEstado = col8Upper;
+          fechaCeseRaw = '';
+        }
+      } else {
+        // Fallback para menos columnas
+        codigo = cols[0] || '';
+        apellidosNombres = cols[1] || '';
+        documentoIdentidad = cols[2] || cols[0];
+        fechaIngresoRaw = cols[3] || '';
+        tipoTrabajador = cols[4] || 'EMPLEADOS AGRÍCOLAS';
+        categoria = '';
+        area = cols[5] || 'GENERAL';
+        cargo = cols[6] || 'OPERADOR';
+        rawEstado = (cols[7] || '').toUpperCase();
+      }
+
+      const fechaIngreso = parseDateString(fechaIngresoRaw) || new Date().toISOString().split('T')[0];
       const estado: 'ACTIVO' | 'CESADO' = rawEstado.includes('CESAD') ? 'CESADO' : 'ACTIVO';
-      const fechaCese = estado === 'CESADO' && cols[8] ? parseDateString(cols[8]) : null;
+      const fechaCese = estado === 'CESADO' && fechaCeseRaw ? parseDateString(fechaCeseRaw) : null;
 
       parsed.push({
         codigo,
@@ -460,11 +573,12 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
         fechaIngreso,
         fechaCese,
         tipoTrabajador,
+        categoria,
         area,
         cargo,
         estado
       });
-    });
+    }
 
     if (parsed.length === 0) {
       error('No se pudo procesar ninguna fila válida.');
@@ -564,6 +678,110 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
         }
       };
       reader.readAsText(file);
+    }
+  };
+  const handleDownloadEmployeeTemplate = () => {
+    try {
+      const headers = [
+        'Codigo',
+        'APELLIDOS Y NOMBRES',
+        'Doc Ident.',
+        'Fecha Ingr.',
+        'Tipo Trab.',
+        'Categoria',
+        'Area',
+        'Cargo',
+        'ESTADO TRABAJADOR',
+        'FECHA CESE'
+      ];
+
+      const sampleRows = [
+        [
+          '10000001',
+          'PEREZ ROJAS JUAN CARLOS',
+          '10000001',
+          '15/01/2026',
+          'EMPLEADO',
+          'EMPLEADOS AGRÍCOLAS',
+          'CONTABILIDAD',
+          'ASISTENTE CONTABLE',
+          'ACTIVO',
+          ''
+        ],
+        [
+          '10000002',
+          'GARCIA LOPEZ MARIA ELENA',
+          '10000002',
+          '01/02/2026',
+          'OBRERO',
+          'OBREROS AGRÍCOLAS',
+          'PLANTA',
+          'OPERARIO DE PRODUCCION',
+          'ACTIVO',
+          ''
+        ]
+      ];
+
+      const wsData = [headers, ...sampleRows];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      ws['!cols'] = [
+        { wch: 12 }, // Codigo
+        { wch: 35 }, // APELLIDOS Y NOMBRES
+        { wch: 14 }, // Doc Ident.
+        { wch: 14 }, // Fecha Ingr.
+        { wch: 18 }, // Tipo Trab.
+        { wch: 22 }, // Categoria
+        { wch: 20 }, // Area
+        { wch: 30 }, // Cargo
+        { wch: 20 }, // ESTADO TRABAJADOR
+        { wch: 14 }  // FECHA CESE
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Plantilla Empleados');
+      XLSX.writeFile(wb, 'plantilla_carga_masiva_empleados.xlsx');
+      success('Plantilla Excel de empleados descargada exitosamente.', 'Plantilla Descargada');
+    } catch (err: any) {
+      error('Error al generar la plantilla Excel: ' + (err?.message || 'error desconocido'));
+    }
+  };
+
+  // ── Download Excel Template for Compensations ────────────────────────────
+  const handleDownloadCompensationTemplate = () => {
+    try {
+      const headers = [
+        'DNI',
+        'Apellidos y Nombres',
+        'Fecha',
+        'ESTADO',
+        'Fecha Compensada'
+      ];
+
+      const sampleRows = [
+        ['46356926', 'ISLA SANTAMARIA RODRIGO RAYMUNDO', '26/04/2026', 'COMPENSADO', '18/05/2026'],
+        ['46356926', 'ISLA SANTAMARIA RODRIGO RAYMUNDO', '29/06/2026', 'PENDIENTE', ''],
+        ['42935726', 'VALDEZ ZACARIAS JULIO ARMANDO', '07/05/2023', 'COMPENSADO', '04/04/2026'],
+        ['42935726', 'VALDEZ ZACARIAS JULIO ARMANDO', '29/06/2023', 'PENDIENTE', '']
+      ];
+
+      const wsData = [headers, ...sampleRows];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      ws['!cols'] = [
+        { wch: 14 },
+        { wch: 38 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 18 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Plantilla Compensaciones');
+      XLSX.writeFile(wb, 'plantilla_carga_masiva_compensaciones.xlsx');
+      success('Plantilla Excel de compensaciones descargada exitosamente.', 'Plantilla Descargada');
+    } catch (err: any) {
+      error('Error al generar la plantilla Excel: ' + (err?.message || 'error desconocido'));
     }
   };
 
@@ -687,12 +905,36 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
         {activeTab === 'employees' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.825rem', color: '#166534' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                <Info size={16} />
-                <span>Compatible 100% con tu Plantilla de Excel:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700 }}>
+                  <Info size={16} />
+                  <span>Compatible 100% con tu Plantilla de Excel:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadEmployeeTemplate}
+                  className="btn btn-sm"
+                  style={{
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    padding: '0.3rem 0.65rem',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    cursor: 'pointer'
+                  }}
+                  title="Descargar archivo Excel (.xlsx) con los encabezados oficiales y datos de ejemplo"
+                >
+                  <Download size={13} />
+                  <span>Descargar Plantilla Excel (.xlsx)</span>
+                </button>
               </div>
               <p style={{ margin: 0 }}>
-                Puedes seleccionar y copiar las filas de tu Excel (con o sin encabezado) y pegarlas aquí directamente. El sistema detecta automáticamente fechas como <code>DD/MM/YYYY</code> (ej. <code>15/09/2025</code>) y columnas separadas por tabulaciones.
+                Puedes descargar la plantilla oficial en <code>.xlsx</code> o seleccionar y copiar las filas de tu Excel (con o sin encabezado) y pegarlas aquí directamente. El sistema detecta automáticamente fechas como <code>DD/MM/YYYY</code> (ej. <code>15/09/2025</code>) y columnas separadas por tabulaciones.
               </p>
               <div style={{ overflowX: 'auto', marginTop: '0.5rem' }}>
                 <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse', background: '#ffffff', border: '1px solid #cbd5e1' }}>
@@ -703,10 +945,11 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                       <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>3. Doc Ident.</th>
                       <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>4. Fecha Ingr.</th>
                       <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>5. Tipo Trab.</th>
-                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>6. Area</th>
-                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>7. Cargo</th>
-                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>8. ESTADO TRABAJADOR</th>
-                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>9. FECHA CESE</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>6. Categoria</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>7. Area</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>8. Cargo</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>9. ESTADO TRABAJADOR</th>
+                      <th style={{ padding: '4px 8px', border: '1px solid #cbd5e1' }}>10. FECHA CESE</th>
                     </tr>
                   </thead>
                 </table>
@@ -716,7 +959,16 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
             <div className="form-group" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <label className="form-label">Pegar filas copiadas de Excel o CSV:</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}
+                    onClick={handleDownloadEmployeeTemplate}
+                  >
+                    <Download size={13} />
+                    <span>Descargar Plantilla Excel (.xlsx)</span>
+                  </button>
                   <label className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', color: '#ea580c', cursor: 'pointer' }}>
                     <Upload size={13} />
                     <span>Subir archivo Excel (.xlsx) o CSV</span>
@@ -776,12 +1028,36 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Info box */}
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.825rem', color: '#166534' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-                <Info size={16} />
-                <span>Estructura de Carga de Compensaciones (5 Columnas)</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700 }}>
+                  <Info size={16} />
+                  <span>Estructura de Carga de Compensaciones (5 Columnas)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadCompensationTemplate}
+                  className="btn btn-sm"
+                  style={{
+                    background: '#0f766e',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    padding: '0.3rem 0.65rem',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    cursor: 'pointer'
+                  }}
+                  title="Descargar archivo Excel (.xlsx) con los encabezados oficiales y datos de ejemplo"
+                >
+                  <Download size={13} />
+                  <span>Descargar Plantilla Excel (.xlsx)</span>
+                </button>
               </div>
               <p style={{ margin: '0 0 0.5rem', color: '#374151' }}>
-                Sube tu archivo Excel <code>.xlsx</code> directamente o copia y pega las filas desde tu hoja de cálculo. El sistema detecta e ignora el encabezado automáticamente:
+                Sube tu archivo Excel <code>.xlsx</code> directamente, copia y pega las filas, o descarga la plantilla oficial:
               </p>
               {/* Column mapping table matching user's Excel */}
               <div style={{ overflowX: 'auto' }}>
@@ -831,6 +1107,15 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <label className="form-label">Pegar filas del Excel o subir archivo:</label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem', color: '#0f766e', fontWeight: 600 }}
+                    onClick={handleDownloadCompensationTemplate}
+                  >
+                    <Download size={13} />
+                    <span>Descargar Plantilla Excel (.xlsx)</span>
+                  </button>
                   <label className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', color: '#0f766e', cursor: 'pointer' }}>
                     <Upload size={13} />
                     <span>Subir archivo Excel (.xlsx)</span>

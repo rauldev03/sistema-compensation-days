@@ -50,6 +50,23 @@ function getNextDayISO(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+const RRHH_SIGNATURE_CHOICES = [
+  {
+    id: 'maria_ramos',
+    name: 'Lic. María Elena Ramos Paredes',
+    title: 'Jefe de Recursos Humanos',
+    url: '/firma-jefe-rrhh.png',
+    badge: 'Firma 1'
+  },
+  {
+    id: 'miguel_bocanegra',
+    name: 'Miguel A. O. Bocanegra',
+    title: 'Jefe de RRHH (Chavín)',
+    url: '/firma-miguel-bocanegra.png',
+    badge: 'Firma 2'
+  }
+];
+
 export const PermissionSheetView: React.FC = () => {
   const {
     selectedEmployeeIdForCompensations,
@@ -114,7 +131,8 @@ export const PermissionSheetView: React.FC = () => {
   const [tiempoSolicitado, setTiempoSolicitado] = useState<string>('1 DÍA (JORNADA COMPLETA)');
   const [motivo, setMotivo] = useState<MotivoType>('OTROS');
   const [motivoOtroEspecifique, setMotivoOtroEspecifique] = useState<string>('COMPENSACIÓN DE DÍA TRABAJADO');
-  const [includeRrhhSignature, setIncludeRrhhSignature] = useState<boolean>(true);
+  const [includeRrhhSignature, setIncludeRrhhSignature] = useState<boolean>(false);
+  const [selectedSignatureUrl, setSelectedSignatureUrl] = useState<string>('/firma-jefe-rrhh.png');
 
   // Preselect approver if available
   useEffect(() => {
@@ -123,6 +141,9 @@ export const PermissionSheetView: React.FC = () => {
       setSelectedApproverId(first.id);
       setAprobadoPor(first.nombreCompleto);
       setCargoAprobador(first.cargo);
+      if (first.firmaUrl) {
+        setSelectedSignatureUrl(first.firmaUrl);
+      }
     }
   }, [approvers]);
 
@@ -831,6 +852,13 @@ export const PermissionSheetView: React.FC = () => {
                       if (found) {
                         setAprobadoPor(found.nombreCompleto);
                         setCargoAprobador(found.cargo);
+                        if (found.firmaUrl) {
+                          setSelectedSignatureUrl(found.firmaUrl);
+                        } else if (found.nombreCompleto.toLowerCase().includes('bocanegra')) {
+                          setSelectedSignatureUrl('/firma-miguel-bocanegra.png');
+                        } else if (found.nombreCompleto.toLowerCase().includes('ramos')) {
+                          setSelectedSignatureUrl('/firma-jefe-rrhh.png');
+                        }
                       }
                     }
                   }}
@@ -1067,42 +1095,111 @@ export const PermissionSheetView: React.FC = () => {
               </div>
             )}
 
-            {/* 7. Firma Digital de RRHH */}
+            {/* 7. Firma Digital de RRHH y Selección de Sello */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.45rem 0.65rem',
-                background: includeRrhhSignature ? '#f0fdf4' : '#f8fafc',
-                border: `1px solid ${includeRrhhSignature ? '#86efac' : '#e2e8f0'}`,
+                background: includeRrhhSignature ? '#f8fafc' : '#f8fafc',
+                border: `1px solid ${includeRrhhSignature ? '#93c5fd' : '#e2e8f0'}`,
                 borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                padding: '0.6rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem'
               }}
-              onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <img
-                  src="/firma-jefe-rrhh.png"
-                  alt="Firma RRHH"
-                  style={{ height: '22px', objectFit: 'contain', opacity: includeRrhhSignature ? 1 : 0.4 }}
-                />
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: includeRrhhSignature ? '#166534' : '#475569' }}>
-                    Firma Digital Jefe de RRHH
-                  </div>
-                  <div style={{ fontSize: '0.675rem', color: '#64748b' }}>
-                    {includeRrhhSignature ? 'Incluida en el formato impreso' : 'Desactivada (recuadro vacío)'}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '0.85rem' }}>✍️</span>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: includeRrhhSignature ? '#1e40af' : '#475569' }}>
+                      Firma Digital Jefe de RRHH
+                    </div>
+                    <div style={{ fontSize: '0.675rem', color: '#64748b' }}>
+                      {includeRrhhSignature ? 'Incluir sello y firma en el formato' : 'Desactivada (recuadro vacío para firma manual)'}
+                    </div>
                   </div>
                 </div>
+                <input
+                  type="checkbox"
+                  checked={includeRrhhSignature}
+                  onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
+                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={includeRrhhSignature}
-                onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
-                style={{ cursor: 'pointer', width: '15px', height: '15px' }}
-              />
+
+              {includeRrhhSignature && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.1rem' }}>
+                  {RRHH_SIGNATURE_CHOICES.map((choice) => {
+                    const isSelected = selectedSignatureUrl === choice.url;
+                    return (
+                      <div
+                        key={choice.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSignatureUrl(choice.url);
+                        }}
+                        style={{
+                          border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          background: isSelected ? '#eff6ff' : '#ffffff',
+                          padding: '0.4rem 0.5rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.25rem',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 1px 3px rgba(37,99,235,0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span
+                            style={{
+                              fontSize: '0.625rem',
+                              fontWeight: 700,
+                              background: isSelected ? '#2563eb' : '#e2e8f0',
+                              color: isSelected ? '#ffffff' : '#475569',
+                              padding: '1px 5px',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            {choice.badge}
+                          </span>
+                          {isSelected && <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 800 }}>✓ Activa</span>}
+                        </div>
+                        <div
+                          style={{
+                            height: '42px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#ffffff',
+                            borderRadius: '4px',
+                            border: '1px solid #f1f5f9',
+                            padding: '2px'
+                          }}
+                        >
+                          <img
+                            src={choice.url}
+                            alt={choice.name}
+                            style={{ maxHeight: '38px', maxWidth: '100%', objectFit: 'contain' }}
+                          />
+                        </div>
+                        <div style={{ fontSize: '0.675rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.15 }}>
+                          {choice.name}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Observaciones */}
@@ -1127,6 +1224,7 @@ export const PermissionSheetView: React.FC = () => {
               data={individualSheetData}
               isPrintable
               showRrhhSignature={includeRrhhSignature}
+              rrhhSignatureUrl={selectedSignatureUrl}
             />
           </div>
         </div>
@@ -1549,41 +1647,111 @@ export const PermissionSheetView: React.FC = () => {
                 />
               </div>
 
-              {/* Toggle de Firma Digital de RRHH en Lote */}
+              {/* Selector de Firma Digital de RRHH en Lote */}
               <div
                 style={{
                   gridColumn: 'span 2',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.35rem 0.5rem',
-                  background: includeRrhhSignature ? '#f0fdf4' : '#f8fafc',
-                  border: `1px solid ${includeRrhhSignature ? '#86efac' : '#e2e8f0'}`,
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                  padding: '0.5rem',
+                  background: includeRrhhSignature ? '#f8fafc' : '#f8fafc',
+                  border: `1px solid ${includeRrhhSignature ? '#93c5fd' : '#e2e8f0'}`,
                   borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
                   marginTop: '0.25rem'
                 }}
-                onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <img
-                    src="/firma-jefe-rrhh.png"
-                    alt="Firma RRHH"
-                    style={{ height: '18px', objectFit: 'contain', opacity: includeRrhhSignature ? 1 : 0.4 }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: includeRrhhSignature ? '#166534' : '#475569' }}>
-                      Firma Jefe de RRHH
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setIncludeRrhhSignature(!includeRrhhSignature)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span style={{ fontSize: '0.8rem' }}>✍️</span>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: includeRrhhSignature ? '#1e40af' : '#475569' }}>
+                        Firma Jefe de RRHH en Lote
+                      </div>
+                      <div style={{ fontSize: '0.625rem', color: '#64748b' }}>
+                        {includeRrhhSignature ? 'Se incluirá en todas las hojas generadas' : 'Desactivada'}
+                      </div>
                     </div>
                   </div>
+                  <input
+                    type="checkbox"
+                    checked={includeRrhhSignature}
+                    onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={includeRrhhSignature}
-                  onChange={(e) => setIncludeRrhhSignature(e.target.checked)}
-                  style={{ cursor: 'pointer', width: '14px', height: '14px' }}
-                />
+
+                {includeRrhhSignature && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                    {RRHH_SIGNATURE_CHOICES.map((choice) => {
+                      const isSelected = selectedSignatureUrl === choice.url;
+                      return (
+                        <div
+                          key={choice.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSignatureUrl(choice.url);
+                          }}
+                          style={{
+                            border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            borderRadius: '5px',
+                            background: isSelected ? '#eff6ff' : '#ffffff',
+                            padding: '0.35rem 0.4rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.2rem',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span
+                              style={{
+                                fontSize: '0.6rem',
+                                fontWeight: 700,
+                                background: isSelected ? '#2563eb' : '#e2e8f0',
+                                color: isSelected ? '#ffffff' : '#475569',
+                                padding: '1px 4px',
+                                borderRadius: '3px'
+                              }}
+                            >
+                              {choice.badge}
+                            </span>
+                            {isSelected && <span style={{ fontSize: '0.65rem', color: '#2563eb', fontWeight: 800 }}>✓</span>}
+                          </div>
+                          <div
+                            style={{
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: '#ffffff',
+                              borderRadius: '3px',
+                              border: '1px solid #f1f5f9'
+                            }}
+                          >
+                            <img
+                              src={choice.url}
+                              alt={choice.name}
+                              style={{ maxHeight: '28px', maxWidth: '100%', objectFit: 'contain' }}
+                            />
+                          </div>
+                          <div style={{ fontSize: '0.625rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
+                            {choice.name}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1719,6 +1887,7 @@ export const PermissionSheetView: React.FC = () => {
                       <OfficialPermissionSheetDoc
                         data={bulkGeneratedSheetsData[bulkPreviewIndex]}
                         showRrhhSignature={includeRrhhSignature}
+                        rrhhSignatureUrl={selectedSignatureUrl}
                       />
                     </div>
                   ) : (
@@ -1730,6 +1899,7 @@ export const PermissionSheetView: React.FC = () => {
                         <OfficialPermissionSheetDoc
                           data={sheetData}
                           showRrhhSignature={includeRrhhSignature}
+                          rrhhSignatureUrl={selectedSignatureUrl}
                         />
                       </div>
                     ))
@@ -1743,6 +1913,7 @@ export const PermissionSheetView: React.FC = () => {
                           data={sheetData}
                           isPrintable
                           showRrhhSignature={includeRrhhSignature}
+                          rrhhSignatureUrl={selectedSignatureUrl}
                         />
                       </div>
                     ))}
